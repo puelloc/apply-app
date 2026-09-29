@@ -19,6 +19,8 @@ import threading
 import time
 from pathlib import Path
 
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "false")  # rule 10: telemetry off
+
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "https://ai.siggy-lab.org")
 MODEL = os.environ.get("QWEN38_TAG", "qwen38-q3-64k:latest")
 PORT = int(os.environ.get("MOCK_PORT", "8124"))

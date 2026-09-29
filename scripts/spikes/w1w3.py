@@ -20,6 +20,8 @@ import sys
 import threading
 from pathlib import Path
 
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "false")  # rule 10: telemetry off
+
 from browser_use import Browser, BrowserProfile
 from browser_use.llm import ChatOllama
 

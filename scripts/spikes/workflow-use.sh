@@ -159,6 +159,7 @@ echo "Leak checker written to ~/apply-spikes/fixture/check-leaks.sh"
 
 say "W1-W3 driver (record/replay/break against the mock form)"
 if [ -x "$HOME/apply-spikes/venv/bin/python3" ]; then
+  ANONYMIZED_TELEMETRY=false \
   OLLAMA_HOST="${OLLAMA_HOST:-https://ai.siggy-lab.org}" \
   QWEN38_TAG="${QWEN38_TAG:-qwen38-q3-64k:latest}" \
   python3 "$SCRIPT_DIR/w1w3.py"

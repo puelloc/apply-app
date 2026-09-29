@@ -112,7 +112,7 @@ echo "(Ollama at https://$OLLAMA_IP; O6 firewall must already allow the Pi.)"
 if [ -x "$HOME/apply-spikes/venv/bin/python3" ]; then
   echo "Running the P4 driver (headless vs headed) inside the spike venv:"
   source "$HOME/apply-spikes/venv/bin/activate"
-  OLLAMA_HOST="https://$OLLAMA_IP" python3 "$SCRIPT_DIR/p4_browseruse.py"
+  ANONYMIZED_TELEMETRY=false OLLAMA_HOST="https://$OLLAMA_IP" python3 "$SCRIPT_DIR/p4_browseruse.py"
 else
   echo "Spike venv not found at ~/apply-spikes/venv — run workflow-use.sh first to create it."
 fi
