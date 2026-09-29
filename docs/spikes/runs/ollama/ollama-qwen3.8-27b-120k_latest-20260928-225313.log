@@ -1,0 +1,76 @@
+===== MODEL: qwen3.8-27b-120k:latest =====
+
+########## O1 version and model ##########
+ollama version is 0.33.3
+RESULT: O1  PASS
+  Model
+    architecture        qwen35     
+    parameters          27.3B      
+    context length      262144     
+    embedding length    5120       
+    quantization        Q4_K_M     
+    requires            0.32.12    
+
+  Capabilities
+    completion    
+    vision        
+    tools         
+    thinking      
+
+  Projector
+    architecture        clip       
+    parameters          460.73M    
+    embedding length    1152       
+    dimensions          5120       
+
+  Parameters
+    top_k                20        
+    top_p                0.95      
+    draft_num_predict    4         
+    min_p                0         
+    num_ctx              122880    
+    presence_penalty     0         
+    repeat_penalty       1         
+    temperature          1         
+
+  License
+    Apache License               
+    Version 2.0, January 2004    
+    ...                          
+
+
+########## O2 load at 64k + offload/VRAM ##########
+RESULT: O2_64k_load PASS
+--- ollama ps (SIZE + PROCESSOR offload% + CONTEXT) ---
+NAME                       ID              SIZE     PROCESSOR          CONTEXT    UNTIL              
+qwen3.8-27b-120k:latest    f4142545a018    19 GB    24%/76% CPU/GPU    65536      4 minutes from now    
+--- rocm-smi vram (20 GB card) ---
+
+
+============================ ROCm System Management Interface ============================
+================================== Memory Usage (Bytes) ==================================
+GPU[0]		: VRAM Total Memory (B): 21458059264
+GPU[0]		: VRAM Total Used Memory (B): 20114460672
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+CHECK: PROCESSOR '100% GPU' + VRAM < ~90% means it fits on-GPU. Paste the lines above.
+
+########## O3 60k-token prompt_eval_count ##########
+input_chars=360000 est_tokens~60000
+prompt_eval_count=60791 eval_count=237
+PASS
+
+########## O4 JSON schema + tool calls (50 each) ##########
+schema_valid=50/50  failures=0
+tool_valid=50/50  failures=0
+PASS
+
+########## O5 think on/off ##########
+think:true: eval_count=27 eval_duration_ns=2382475000 tok/s=11.3 wall=3.62s
+   response: 'Saturn is a planet.'
+think:false: eval_count=7 eval_duration_ns=618943000 tok/s=11.3 wall=1.33s
+   response: 'Mars is a planet.'
+CHECK: does think:false change eval_count/timing? Record which knob is honored.
+
+########## SUMMARY ##########
+model=qwen3.8-27b-120k:latest passed=2 failed=0
