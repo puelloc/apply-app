@@ -5,7 +5,7 @@ A single-user, fully open-source system in my home lab, run with Docker Compose.
 
 ## Hardware and language
 - **Raspberry Pi 5 (8GB) with SSD** runs everything except the model. All images must be arm64.
-- **Separate machine runs Ollama** with **Qwen3.8-27B** (dense vision-language), `num_ctx` 64k pinned in a Modelfile, and `keep_alive` set so the model isn't unloaded between jobs. The worker reaches it over the LAN, and it's firewalled to accept only the Pi. The browser can't reach it.
+- **Separate machine runs Ollama** with **Qwen3.8-27B** (dense vision-language), `num_ctx` 64k pinned in a Modelfile, and `keep_alive` set so the model isn't unloaded between jobs. The worker reaches it over the LAN at **`ai.siggy-lab.org:11434`**, and it's firewalled to accept only the Pi. The browser can't reach it.
 - **Python for everything.** Go or Rust only later, if the relay, proxy, or vault becomes a concrete problem. A future UI can be TypeScript generated from the OpenAPI schema.
 - **Stack:** browser-use and workflow-use vendored at pinned commits with a lockfile and telemetry off, FastAPI, SQLite (WAL, Alembic), FastMCP, and Chromium with a persistent profile separate from my everyday browser.
 - **Already verified:** Chromium, Playwright, and browser-use run headless on the Pi. Headed mode, Qwen3.8 via Ollama, and workflow-use are still unverified.
@@ -48,8 +48,8 @@ A single-user, fully open-source system in my home lab, run with Docker Compose.
 - All domains are logged.
 
 ## Reverse proxy and domain (Nginx Proxy Manager)
-- NPM fronts the api, mcp, and KasmVNC over the `proxy` network. My domain is internal-only.
-- **Hostnames:** for example `jobs-api.`, `jobs-mcp.`, and `jobs-review.` subdomains, resolved by local DNS to NPM's LAN IP.
+- NPM fronts the api, mcp, and KasmVNC over the `proxy` network. My domain is internal-only: **`siggy-lab.org`**.
+- **Hostnames:** `jobs-api.siggy-lab.org`, `jobs-mcp.siggy-lab.org`, and `jobs-review.siggy-lab.org`, resolved by local DNS to NPM's LAN IP. The existing jobs-app source is already exposed separately at `jobapp.siggy-lab.org`.
 - **TLS:** a Let's Encrypt wildcard cert via the DNS challenge. No port is opened to the internet.
 - **Access:** an NPM access list restricted to LAN ranges, with the API's bearer tokens as the second layer.
 - **Settings:** WebSockets on for KasmVNC. For MCP, proxy buffering off and a long read timeout.
@@ -256,9 +256,10 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 
 | Date | Decision | Rationale |
 | --- | --- | --- |
-| 2026-09-28 | **Job intake reads from the existing `jobs-app` read-only JSON API** (`GET /api/jobs` list + `GET /api/jobs/{id}` detail with `application_url`/`listing_url`/`description`), exposed on host port `8094` (UI on `8095`), rather than opening `jobs-app`'s `jobs.db` directly or copying data into `apply-app`. | The user pointed at "the app exposed with a list of jobs and the urls to their application site"; `jobs-app` already exposes exactly that. Keeping `jobs-app` as the single source of truth for job discovery and `apply-app` as the application executor avoids two writers on one SQLite file. |
+| 2026-09-28 | **Job intake reads from the existing `jobs-app` read-only JSON API** (`GET /api/jobs` list + `GET /api/jobs/{id}` detail with `application_url`/`listing_url`/`description`), exposed at `https://jobapp.siggy-lab.org/` (raw host port `8094`, UI `8095`), rather than opening `jobs-app`'s `jobs.db` directly or copying data into `apply-app`. | The user pointed at "the app exposed with a list of jobs and the urls to their application site"; `jobs-app` already exposes exactly that. Keeping `jobs-app` as the single source of truth for job discovery and `apply-app` as the application executor avoids two writers on one SQLite file. |
 | 2026-09-28 | **Discovery recorded:** `jobs-app`'s `jobs.db` currently holds 111 `job_listings`, all RemoteOK-sourced; `application_url` holds the RemoteOK redirect (`remoteOK.com/remote-jobs/...`) and `company_application_platform_id` is NULL on every row, because the careers→listings pipeline is still in flight. | Consequence: the final employer ATS URL is **not yet** in `jobs-app`, so the plan's intake step "job-board redirects (LinkedIn and Indeed links resolve to the employer's ATS)" is load-bearing and must cover RemoteOK too, and must be verified early. |
 | 2026-09-28 | **P3 RAM measurement uses mock/local pages first, and real-ATS P3 + P5 (bot-detection) are gated behind explicit approval.** | Rule 8 forbids visiting real job sites / third-party sites before N1–N6, S1, and S2 pass; the plan's own P3 ("real ATS pages") and P5 ("public bot-detection page") would otherwise violate that rule during step 0. Mock-first keeps step 0 unblocked without relaxing rule 8. |
+| 2026-09-28 | **Recorded concrete hosts.** Ollama is reachable at `ai.siggy-lab.org:11434`; the existing jobs-app API is at `https://jobapp.siggy-lab.org/`; the domain is `siggy-lab.org`. The worker's `OLLAMA_BASE_URL` uses the hostname, and intake targets the jobs-app URL. | The user supplied the two real endpoints, replacing the `<domain>` and `<OLLAMA_BOX_LAN_IP>` placeholders. |
 
 ## Verification log
 
@@ -307,7 +308,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 ## Open questions
 
 1. **Rule 8 vs P3/P5.** The plan's P3 says "real ATS pages" and P5 says "public bot-detection page", both before N1–N6/S1/S2 pass. Default chosen (see Decision log): mock-first for P3, gate P5 + real-ATS P3 behind explicit approval. Confirm this reading is acceptable before I hand over a third-party-visit command.
-2. **Actual internal domain.** Hostnames use the placeholder `<domain>` (`jobs-api.<domain>`, `jobs-mcp.<domain>`, `jobs-review.<domain>`). The real internal domain is unknown; scripts keep the placeholder until the user supplies it.
+2. **Internal vs public resolvability of the hosts.** The domain is now known: `siggy-lab.org` — Ollama at `ai.siggy-lab.org`, jobs-app at `jobapp.siggy-lab.org`, and the apply-app hostnames `jobs-api.` / `jobs-mcp.` / `jobs-review.` under it. Still to verify (D1/D5, N1): whether `ai.siggy-lab.org` and `jobapp.siggy-lab.org` resolve only via local DNS to LAN IPs, or are publicly resolvable — this determines the exact firewall and NPM access-list posture.
 3. **Exact Ollama tag for Qwen3.8-27B.** The precise Ollama model name/tag is unverified (that is O1's job). Scripts use a `<QWEN38_TAG>` placeholder the user sets before running.
 4. **KasmVNC arm64 image tag.** The exact multi-arch tag to pin is confirmed at P2; the spike script proposes one and records the real tag.
 5. **workflow-use feasibility.** W1–W3 verify record/replay with placeholders. If it fails, the plan already names the fallback (build a thin recorder). No decision until W1–W3 evidence is in.
@@ -318,3 +319,4 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **Initial commit.** Saved the plan verbatim to `docs/PLAN.md` and appended the required sections: Decision log, Verification log (all O1–L1 tests pre-seeded as `untested`), Open questions, and Changelog.
 - **Recorded job-intake source.** Decided `apply-app` reads jobs from the existing `jobs-app` read-only JSON API; recorded the discovery that `application_url` is currently a RemoteOK redirect (final ATS URL not yet in `jobs-app`).
 - **Recorded the rule-8 vs P3/P5 tension** and the mock-first default for the P3 RAM spike.
+- **Recorded concrete hosts.** Ollama = `ai.siggy-lab.org:11434`; jobs-app API = `https://jobapp.siggy-lab.org/`; domain = `siggy-lab.org`. Updated the worker `OLLAMA_BASE_URL` and the spike scripts accordingly.

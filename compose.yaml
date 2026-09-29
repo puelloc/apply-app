@@ -61,8 +61,8 @@ services:
       - imap_user
       - imap_pass
     environment:
-      # Route to the Ollama box over the LAN (step 1 wires the actual host/IP).
-      OLLAMA_BASE_URL: http://<OLLAMA_BOX_LAN_IP>:11434
+      # Ollama box, reached over the LAN by hostname.
+      OLLAMA_BASE_URL: http://ai.siggy-lab.org:11434
     # The vault key is NOT a file secret: it is supplied at boot and lives only in worker memory
     # (build step 4). It re-seals on every reboot.
 

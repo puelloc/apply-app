@@ -3,6 +3,8 @@
 One self-contained copy-paste script per machine. Run them in this order and paste back the
 evidence requested. Status for every test is tracked in `docs/PLAN.md` → Verification log.
 
+**Known hosts:** Ollama = `ai.siggy-lab.org:11434` · jobs-app API = `https://jobapp.siggy-lab.org/` · domain = `siggy-lab.org`.
+
 > **Rule 8 gate:** nothing here may visit a real job site or third-party site yet. P3 is mock-first,
 > and **P5 (bot-detection page) is paused until you approve a specific URL** — tell the agent which
 > URL (or "none yet") and it will pin the exact command.
