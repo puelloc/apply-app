@@ -88,8 +88,8 @@ tag = sys.argv[1]
 # ~60k tokens of English text (approx 4 chars/token => 240k chars).
 para = ("The quick brown fox jumps over the lazy dog and the project ships reliable software. "
         "Remote-friendly engineering with careful review and steady progress. ") 
-text = (para * 8000)[:250000]
-est_tokens = len(text)//4
+text = (para * 12000)[:360000]
+est_tokens = len(text)//6
 req = urllib.request.Request("http://localhost:11434/api/generate",
     data=json.dumps({"model": tag, "prompt": text, "stream": False,
                      "options": {"num_ctx": 65536}}).encode(),
@@ -99,7 +99,7 @@ try:
     pe = d.get("prompt_eval_count"); ec = d.get("eval_count")
     print(f"input_chars={len(text)} est_tokens~{est_tokens}")
     print(f"prompt_eval_count={pe} eval_count={ec}")
-    print("PASS" if (pe and pe >= 40000) else "CHECK: prompt_eval_count looks low -> possible truncation")
+    print("PASS" if (pe and pe >= 55000) else "CHECK: prompt_eval_count looks low -> possible truncation")
 except urllib.error.HTTPError as e:
     print("HTTP error", e.code, e.read()[:500])
 PY

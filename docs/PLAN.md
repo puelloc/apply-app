@@ -13,7 +13,7 @@ A single-user, fully open-source system in my home lab, run with Docker Compose.
 ## Model configuration (Qwen3.8-27B)
 - Thinking is on by default. Use thinking off or low effort for deterministic mapping and simple fills. Use higher effort only for the fallback agent and open-ended answers.
 - Vision is available, but screenshots cost context and latency and are a leak surface.
-- KV cache is cheap thanks to linear-attention layers. A Q4 build is about 17 GB — against the card's **20 GB VRAM** that leaves only ~3 GB headroom, so O2/O3 must confirm 64k context fits without CPU offload.
+- KV cache is cheap thanks to linear-attention layers. The Q4_K_M build measures **19 GB** (not the ~17 GB assumed), and at 64k context it does **not** fit in the card's **20 GB VRAM** — O2 measured 93% VRAM used with ~24% of layers offloaded to CPU (see Decision log for the fallback options).
 - The model gets only the profile fields the current form needs, never the whole profile.
 - Large forms (Workday) can blow the 64k window, so the fallback agent needs DOM pruning.
 - To verify: Ollama support for the architecture, the thinking controls, JSON and tool-call reliability, and whether browser-use passes parameters through.
@@ -264,17 +264,19 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | 2026-09-28 | **Ollama GPU is AMD, not NVIDIA.** The box has an **AMD Radeon RX 7900 XT (20 GB VRAM, ROCm)**, so the O2 VRAM check uses `rocm-smi` (not `nvidia-smi`). ~17 GB Q4 vs 20 GB VRAM leaves ~3 GB headroom — tight, so O2/O3 are load-bearing. | The user supplied the GPU model; the plan's O2 originally assumed `nvidia-smi`, which would have failed on ROCm. |
 | 2026-09-28 | **KasmVNC arm64 tag confirmed.** `kasmweb/chromium:1.16.1` is multi-arch (both `amd64` and `arm64` manifests present) and starts on the Pi (P2 pass). | P2's manifest inspection + container start resolved Open question #4; the arm64 image is this tag. |
 | 2026-09-28 | **Spike scripts auto-log + auto-commit/push.** Each spike script tees its output to `~/apply-spikes/logs/<machine>-<timestamp>.log` and at the end commits it to `docs/spikes/runs/<machine>/` in this repo and pushes. Push requires git credentials on that machine; on failure the log is saved and the commit is left locally. | The user asked for results to be logged to a file and git-committed/pushed so the agent can read them from the repo instead of copy-paste. |
+| 2026-09-28 | **Ollama model tag + version recorded.** Tag = `qwen3.8-27b-64k:latest`; `ollama` 0.33.3 (model requires ≥0.32.12); `ollama show` reports architecture `qwen35`, 27.3B, Q4_K_M, Modelfile `num_ctx` 64440. | O1 resolved the `<QWEN38_TAG>` placeholder (Open question #3). |
+| 2026-09-28 | **O2 headroom assumption is wrong (rule 10).** The Q4_K_M build is 19 GB (not ~17 GB), and at 64k context it does not fit in the 20 GB VRAM: 93% VRAM used, ~24% of layers offloaded to CPU. Fallbacks to choose from: (a) smaller quant (Q4_0 / Q3_K_M) so it fits on-GPU, (b) lower `num_ctx` (e.g. 32k), (c) accept the CPU offload (works, ~17 tok/s generation). | Measured by O2 (`rocm-smi` + `ollama ps`). Disproves the plan's "VRAM fits with headroom" clause, so O2 is marked fail and a fallback must be chosen before L1 and long-form runs. |
 
 ## Verification log
 
 | Test | Status | Date | Evidence |
 | --- | --- | --- | --- |
-| O1 | untested | | |
-| O2 | untested | | |
-| O3 | untested | | |
-| O4 | untested | | |
-| O5 | untested | | |
-| O6 | untested | | |
+| O1 | pass | 2026-09-28 | `ollama --version` = 0.33.3; `ollama show qwen3.8-27b-64k:latest` → architecture `qwen35`, 27.3B, Q4_K_M, context 262144, capabilities include vision/tools/thinking. |
+| O2 | fail | 2026-09-28 | `num_ctx:65536` accepted (`CONTEXT 65536`, "response ok: pong") — context clause OK. Headroom clause failed: `rocm-smi` VRAM 93% used (20.08 GB / 21.46 GB) and `ollama ps` PROCESSOR `24%/76% CPU/GPU` (~24% offloaded to CPU). Model = 19 GB Q4_K_M. |
+| O3 | pass | 2026-09-28 | `prompt_eval_count=42220` for 250k-char input (≈42k tokens), no truncation. Note: the ~60k target wasn't reached (real chars/token ≈ 5.9, not 4) — re-run with denser text to push toward 60k. |
+| O4 | pass | 2026-09-28 | 50/50 valid JSON-schema outputs and 50/50 valid tool-call outputs (100%, above the 98% bar). |
+| O5 | pass | 2026-09-28 | `think` toggle honored: `think:false` → eval_count 7, 17.4 tok/s, 0.92s wall; `think:true` → eval_count 31, 14.3 tok/s, 9.06s wall. |
+| O6 | untested | 2026-09-28 | `keep_alive:30m` was set; the "still loaded after idle" check and the ufw firewall + cross-host curl (Pi ok / other host fail) are not yet evidenced. |
 | P1 | pass | 2026-09-28 | `uname -m` = `aarch64`; `docker compose version` = v5.4.0; `vcgencmd get_throttled` = `throttled=0x0`. |
 | P2 | pass | 2026-09-28 | `kasmweb/chromium:1.16.1` has an arm64 manifest; image pulled; container `kasmvnc-spike` Up (`P2_start PASS`). "Connect through NPM with WebSockets" leg not yet evidenced — deferred to D3. |
 | P3 | untested | | |
@@ -313,9 +315,10 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 
 1. **Rule 8 vs P3/P5.** The plan's P3 says "real ATS pages" and P5 says "public bot-detection page", both before N1–N6/S1/S2 pass. Default chosen (see Decision log): mock-first for P3, gate P5 + real-ATS P3 behind explicit approval. Confirm this reading is acceptable before I hand over a third-party-visit command.
 2. **Internal vs public resolvability of the hosts — resolved.** The domain is `siggy-lab.org` — Ollama at `ai.siggy-lab.org`, jobs-app at `jobapp.siggy-lab.org`, and the apply-app hostnames `jobs-api.` / `jobs-mcp.` / `jobs-review.` under it. Confirmed 2026-09-28: all are internal-only (local DNS → LAN IP), NPM is local-only, and they are not reachable outside the network. Firewall (O6) and NPM access-list (D5) remain the enforcement layers, verified by D1/D5/N1.
-3. **Exact Ollama tag for Qwen3.8-27B.** The precise Ollama model name/tag is unverified (that is O1's job). Scripts use a `<QWEN38_TAG>` placeholder the user sets before running.
+3. ~~Exact Ollama tag for Qwen3.8-27B~~ **Resolved:** `qwen3.8-27b-64k:latest` (O1; `ollama` 0.33.3, architecture `qwen35`, Q4_K_M).
 4. ~~KasmVNC arm64 image tag~~ **Resolved:** `kasmweb/chromium:1.16.1` is multi-arch (arm64 manifest present) and starts on the Pi (P2 pass).
 5. **workflow-use feasibility.** W1–W3 verify record/replay with placeholders. If it fails, the plan already names the fallback (build a thin recorder). No decision until W1–W3 evidence is in.
+6. **VRAM fallback (from O2 fail).** Choose: smaller quant vs lower `num_ctx` vs accept CPU offload. Blocks L1 and long-form runs until decided.
 
 ## Changelog
 
@@ -328,3 +331,5 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **AMD GPU recorded.** Ollama runs on an AMD Radeon RX 7900 XT (20 GB VRAM, ROCm); switched O2's VRAM check from `nvidia-smi` to `rocm-smi` and flagged the ~3 GB headroom for the 64k-context check.
 - **P1 and P2 pass.** Pi is `aarch64` with `throttled=0x0`; `kasmweb/chromium:1.16.1` is arm64-capable and started under KasmVNC (NPM/WebSocket leg deferred to D3).
 - **Spike scripts now auto-log + auto-commit/push** their results to `docs/spikes/runs/<machine>/`.
+- **O1–O5 results.** O1/O3/O4/O5 pass; O2 fails its headroom clause. Ollama 0.33.3, model `qwen3.8-27b-64k:latest` (architecture `qwen35`, Q4_K_M).
+- **VRAM assumption corrected.** Q4_K_M is 19 GB and 64k context does not fit in 20 GB VRAM (93% used, ~24% CPU offload) — fallbacks proposed in Decision log / Open question #6.
