@@ -1,0 +1,69 @@
+===== MODEL: batiai/qwen3.8-27b:q3 =====
+
+########## O1 version and model ##########
+ollama version is 0.33.3
+RESULT: O1  PASS
+  Model
+    architecture        qwen35    
+    parameters          26.9B     
+    context length      262144    
+    embedding length    5120      
+    quantization        Q3_K_M    
+
+  Capabilities
+    completion    
+    tools         
+    thinking      
+
+  Parameters
+    num_predict       2048              
+    repeat_penalty    1                 
+    stop              "<|im_start|>"    
+    stop              "<|im_end|>"      
+    stop              "<|im_end|>"      
+    temperature       0.7               
+    top_k             20                
+    top_p             0.8               
+    num_ctx           16384             
+
+  License
+    Apache License               
+    Version 2.0, January 2004    
+    ...                          
+
+
+########## O2 load at 64k + offload/VRAM ##########
+RESULT: O2_64k_load PASS
+--- ollama ps (SIZE + PROCESSOR offload% + CONTEXT) ---
+NAME                     ID              SIZE     PROCESSOR    CONTEXT    UNTIL              
+batiai/qwen3.8-27b:q3    6941e59dfeb8    17 GB    100% GPU     65536      4 minutes from now    
+--- rocm-smi vram (20 GB card) ---
+
+
+============================ ROCm System Management Interface ============================
+================================== Memory Usage (Bytes) ==================================
+GPU[0]		: VRAM Total Memory (B): 21458059264
+GPU[0]		: VRAM Total Used Memory (B): 18060873728
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+CHECK: PROCESSOR '100% GPU' + VRAM < ~90% means it fits on-GPU. Paste the lines above.
+
+########## O3 60k-token prompt_eval_count ##########
+input_chars=360000 est_tokens~60000
+prompt_eval_count=60791 eval_count=287
+PASS
+
+########## O4 JSON schema + tool calls (50 each) ##########
+schema_valid=50/50  failures=0
+tool_valid=50/50  failures=0
+PASS
+
+########## O5 think on/off ##########
+think:true: eval_count=39 eval_duration_ns=1185680000 tok/s=32.9 wall=1.57s
+   response: 'Mars is a planet.'
+think:false: eval_count=7 eval_duration_ns=190098000 tok/s=36.8 wall=0.45s
+   response: 'Mars is a planet.'
+CHECK: does think:false change eval_count/timing? Record which knob is honored.
+
+########## SUMMARY ##########
+model=batiai/qwen3.8-27b:q3 passed=2 failed=0
