@@ -28,6 +28,13 @@ else
   BUILD_Q3_64K=1
 fi
 
+if [ -n "${QWEN38_TAG:-}" ]; then
+  echo "MODE: single-model (QWEN38_TAG is set in your environment). Testing: ${MODELS[*]}"
+  echo "  To run the full sweep instead, unset it first:  unset QWEN38_TAG && ./ollama.sh"
+else
+  echo "MODE: full sweep. Will build q3-64k (if absent) then test: ${MODELS[*]}"
+fi
+
 # Q3-at-64k (fallback C): rebase the local Q3 weights with num_ctx 65536. No GGUF download.
 Q3_64K="qwen38-q3-64k:latest"
 Q3_SRC="${Q3_SRC:-qwen38-q3-32k:latest}"
@@ -261,6 +268,9 @@ echo "After ~2 min of idle, run: ollama ps   ($prev should STILL be listed, not 
 
 # O6 firewall instructions — model-agnostic, printed once.
 say "O6 firewall (ufw) — allow ONLY the Pi"
+echo "Note: the O-tests above used localhost (correct, since they ran on this box)."
+echo "This step is different: it lets the Pi reach Ollama over the LAN (ai.siggy-lab.org),"
+echo "so <PI_LAN_IP> below is the Pi's LAN IP — not this box's."
 echo "Prereq (Ubuntu): Ollama must listen on the LAN interface, not just 127.0.0.1 —"
 echo "  you've already exposed it (ai.siggy-lab.org works), so this is satisfied; on a rebuild set OLLAMA_HOST=0.0.0.0."
 echo "Run these, replacing <PI_LAN_IP> with the Pi's LAN IP:"

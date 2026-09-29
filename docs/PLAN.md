@@ -275,7 +275,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | --- | --- | --- | --- |
 | O1 | pass | 2026-09-28 | `ollama --version` = 0.33.3; `ollama show qwen3.8-27b-64k:latest` → architecture `qwen35`, 27.3B, Q4_K_M, context 262144, capabilities include vision/tools/thinking. |
 | O2 | fail | 2026-09-28 | `num_ctx:65536` accepted (`CONTEXT 65536`, "response ok: pong") — context clause OK. Headroom clause failed: `rocm-smi` VRAM 93% used (20.08 GB / 21.46 GB) and `ollama ps` PROCESSOR `24%/76% CPU/GPU` (~24% offloaded to CPU). Model = 19 GB Q4_K_M. |
-| O3 | pass | 2026-09-28 | `prompt_eval_count=42220` for 250k-char input (≈42k tokens), no truncation. Note: the ~60k target wasn't reached (real chars/token ≈ 5.9, not 4) — re-run with denser text to push toward 60k. |
+| O3 | pass | 2026-09-28 | Re-run with denser input: `prompt_eval_count=60791` for 360k-char input (~60k tokens), no truncation — 60k confirmed. (First run: 42220 for 42k.) |
 | O4 | pass | 2026-09-28 | 50/50 valid JSON-schema outputs and 50/50 valid tool-call outputs (100%, above the 98% bar). |
 | O5 | pass | 2026-09-28 | `think` toggle honored: `think:false` → eval_count 7, 17.4 tok/s, 0.92s wall; `think:true` → eval_count 31, 14.3 tok/s, 9.06s wall. |
 | O6 | untested | 2026-09-28 | `keep_alive:30m` was set; the "still loaded after idle" check and the ufw firewall + cross-host curl (Pi ok / other host fail) are not yet evidenced. |
