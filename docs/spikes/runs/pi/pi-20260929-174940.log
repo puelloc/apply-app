@@ -1,0 +1,276 @@
+
+########## P1 hardware ##########
+uname -m:
+aarch64
+docker compose version:
+Docker Compose version v5.4.0
+vcgencmd get_throttled (want 0x0 at idle):
+throttled=0x0
+RESULT: P1_arch PASS
+RESULT: P1_throttled PASS
+
+########## P2 KasmVNC arm64 image ##########
+Discovering arm64 manifests for kasmweb/chromium:
+            "architecture": "amd64",
+            "architecture": "arm64",
+            "os": "linux"
+            "os": "linux",
+Running headed Chromium (Xvfb + KasmVNC) on host port 6901:
+19d3794037a7474edda11aff4568c65bc6d76c6db247dda70e95298b99487e6e
+--- container logs (tail) ---
+[188:207:0929/225008.212458:ERROR:bus.cc(399)] Failed to connect to the bus: Failed to connect to socket /var/run/dbus/system_bus_socket: No such file or directory
+[188:188:0929/225008.225187:ERROR:chrome_browser_cloud_management_controller.cc(162)] Cloud management controller initialization aborted as CBCM is not enabled.
+ * Serving Flask app 'kasm_upload_server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on https://127.0.0.1:4902
+ * Running on https://172.17.0.2:4902
+[33mPress CTRL+C to quit[0m
+[188:188:0929/225009.508460:ERROR:gpu_process_host.cc(942)] GPU process exited unexpectedly: exit_code=139
+[188:282:0929/225009.803100:ERROR:bus.cc(399)] Failed to connect to the bus: Failed to connect to socket /var/run/dbus/system_bus_socket: No such file or directory
+[188:282:0929/225009.803199:ERROR:bus.cc(399)] Failed to connect to the bus: Failed to connect to socket /var/run/dbus/system_bus_socket: No such file or directory
+[188:282:0929/225009.803328:ERROR:bus.cc(399)] Failed to connect to the bus: Failed to connect to socket /var/run/dbus/system_bus_socket: No such file or directory
+[188:282:0929/225009.803437:ERROR:bus.cc(399)] Failed to connect to the bus: Failed to connect to socket /var/run/dbus/system_bus_socket: No such file or directory
+[188:282:0929/225009.803511:ERROR:bus.cc(399)] Failed to connect to the bus: Failed to connect to socket /var/run/dbus/system_bus_socket: No such file or directory
+RESULT: P2_start PASS
+Connect in a browser to https://<PI_LAN_IP>:6901 (user: kasm_user, password: spikepw).
+Pass only when you can open it THROUGH NPM with WebSockets (jobs-review.<domain>) — that is D3 later.
+
+########## P3 RAM per tab (mock page, NOT a real ATS) ##########
+Mock form served at http://<PI_LAN_IP>:8123/form.html
+In the KasmVNC session from P2, open 1 tab, then 3, then 5 tabs to that URL.
+After EACH count, run the two lines below and note the numbers:
+  docker stats kasmvnc-spike --no-stream
+  free -h
+PASS if total used RAM stays under ~6GB at 5 tabs with no swap thrash (si/so ~0 in 'free -h' / vmstat 1).
+
+########## P4 browser-use headed vs headless (needs Ollama reachable + the venv from workflow-use.sh) ##########
+RESULT: P4_ollama PASS
+(Ollama at https://ai.siggy-lab.org; O6 firewall must already allow the Pi.)
+Running the P4 driver (headless vs headed) inside the spike venv:
+INFO     [Agent] [34m🎯 Task: Open the mock application form. Fill it with these CANARY test values only: first name CANARY-First, last name CANARY-Last, email canary@example.invalid, phone 555-0001, linkedin https://example.invalid/in/canary, website https://example.invalid, years of experience 9, work authorization select 'I am authorized to work in the US', cover letter 'CANARY cover letter body'. Then STOP. Do NOT click the Submit button.[0m
+INFO     [Agent] Starting a browser-use agent with version 0.13.10, with provider=ollama and model=qwen38-q3-64k:latest
+ERROR    [BrowserSession] [LocalBrowserWatchdog] Exception in on_BrowserLaunchEvent: process PID not found (pid=2162696)
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 157, in _launch_browser
+    process = psutil.Process(subprocess.pid)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 314, in __init__
+    self._init(pid)
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 360, in _init
+    raise NoSuchProcess(pid, msg=msg) from None
+psutil.NoSuchProcess: process PID not found (pid=2162696)
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#d9fc)]    ❌ Failed (0.01s): NoSuchProcess: process PID not found (pid=2162696)
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#d9fc)]    ❌ CDP connected but failed to re-create CDP session after error "NoSuchProcess: process PID not found (pid=2162696)" in on_BrowserLaunchEvent(BrowserLaunchEvent#d9fc): due to AssertionError: Root CDP client not initialized
+
+WARNING  [BrowserSession] Local browser failed to start. Cloud browsers require no local install and work out of the box.
+         Try: Browser(use_cloud=True)  |  Get an API key: https://cloud.browser-use.com?utm_source=oss&utm_medium=browser_launch_failure
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#0fed)]           ❌ Failed (0.06s): NoSuchProcess: process PID not found (pid=2162696)
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#0fed)]           ❌ CDP connected but failed to re-create CDP session after error "NoSuchProcess: process PID not found (pid=2162696)" in on_BrowserStartEvent(BrowserStartEvent#0fed): due to AssertionError: Root CDP client not initialized
+
+ERROR    [Agent] Agent run failed with exception: process PID not found (pid=2162696)
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/agent/service.py", line 2563, in run
+    await self.browser_session.start()
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/session.py", line 732, in start
+    await start_event.event_result(raise_if_any=True, raise_if_none=False)
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 574, in event_result
+    valid_results = await self.event_results_filtered(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 516, in event_results_filtered
+    raise original_error
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 490, in event_results_filtered
+    await event_result
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 889, in wait_for_handler_to_complete_and_return_result
+    raise self.error if isinstance(self.error, BaseException) else Exception(self.error)  # pyright: ignore[reportUnnecessaryIsInstance]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/service.py", line 1128, in execute_handler
+    result_value: Any = await asyncio.wait_for(handler_task, timeout=event_result.timeout)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdog_base.py", line 153, in unique_handler
+    result = await actual_handler(event)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/session.py", line 823, in on_BrowserStartEvent
+    BrowserLaunchResult, await launch_event.event_result(raise_if_none=True, raise_if_any=True)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 574, in event_result
+    valid_results = await self.event_results_filtered(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 516, in event_results_filtered
+    raise original_error
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 490, in event_results_filtered
+    await event_result
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 889, in wait_for_handler_to_complete_and_return_result
+    raise self.error if isinstance(self.error, BaseException) else Exception(self.error)  # pyright: ignore[reportUnnecessaryIsInstance]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/service.py", line 1128, in execute_handler
+    result_value: Any = await asyncio.wait_for(handler_task, timeout=event_result.timeout)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdog_base.py", line 153, in unique_handler
+    result = await actual_handler(event)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 157, in _launch_browser
+    process = psutil.Process(subprocess.pid)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 314, in __init__
+    self._init(pid)
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 360, in _init
+    raise NoSuchProcess(pid, msg=msg) from None
+psutil.NoSuchProcess: process PID not found (pid=2162696)
+INFO     [Agent] 
+INFO     [Agent] Did the Agent not work as expected? Let us fix this!
+INFO     [Agent]    Open a short issue on GitHub: https://github.com/browser-use/browser-use/issues
+INFO     [BrowserSession] 📢 on_BrowserStopEvent - Calling reset() (force=True, keep_alive=None)
+INFO     [BrowserSession] ✅ Browser session reset complete
+INFO     [BrowserSession] ✅ Browser session reset complete
+INFO     [Agent] [34m🎯 Task: Open the mock application form. Fill it with these CANARY test values only: first name CANARY-First, last name CANARY-Last, email canary@example.invalid, phone 555-0001, linkedin https://example.invalid/in/canary, website https://example.invalid, years of experience 9, work authorization select 'I am authorized to work in the US', cover letter 'CANARY cover letter body'. Then STOP. Do NOT click the Submit button.[0m
+INFO     [Agent] Starting a browser-use agent with version 0.13.10, with provider=ollama and model=qwen38-q3-64k:latest
+ERROR    [BrowserSession] [LocalBrowserWatchdog] Exception in on_BrowserLaunchEvent: process PID not found (pid=2162727)
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 157, in _launch_browser
+    process = psutil.Process(subprocess.pid)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 314, in __init__
+    self._init(pid)
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 360, in _init
+    raise NoSuchProcess(pid, msg=msg) from None
+psutil.NoSuchProcess: process PID not found (pid=2162727)
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#f05e)]    ❌ Failed (0.00s): NoSuchProcess: process PID not found (pid=2162727)
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#f05e)]    ❌ CDP connected but failed to re-create CDP session after error "NoSuchProcess: process PID not found (pid=2162727)" in on_BrowserLaunchEvent(BrowserLaunchEvent#f05e): due to AssertionError: Root CDP client not initialized
+
+WARNING  [BrowserSession] Local browser failed to start. Cloud browsers require no local install and work out of the box.
+         Try: Browser(use_cloud=True)  |  Get an API key: https://cloud.browser-use.com?utm_source=oss&utm_medium=browser_launch_failure
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#cd5c)]           ❌ Failed (0.02s): NoSuchProcess: process PID not found (pid=2162727)
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#cd5c)]           ❌ CDP connected but failed to re-create CDP session after error "NoSuchProcess: process PID not found (pid=2162727)" in on_BrowserStartEvent(BrowserStartEvent#cd5c): due to AssertionError: Root CDP client not initialized
+
+ERROR    [Agent] Agent run failed with exception: process PID not found (pid=2162727)
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/agent/service.py", line 2563, in run
+    await self.browser_session.start()
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/session.py", line 732, in start
+    await start_event.event_result(raise_if_any=True, raise_if_none=False)
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 574, in event_result
+    valid_results = await self.event_results_filtered(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 516, in event_results_filtered
+    raise original_error
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 490, in event_results_filtered
+    await event_result
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 889, in wait_for_handler_to_complete_and_return_result
+    raise self.error if isinstance(self.error, BaseException) else Exception(self.error)  # pyright: ignore[reportUnnecessaryIsInstance]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/service.py", line 1128, in execute_handler
+    result_value: Any = await asyncio.wait_for(handler_task, timeout=event_result.timeout)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdog_base.py", line 153, in unique_handler
+    result = await actual_handler(event)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/session.py", line 823, in on_BrowserStartEvent
+    BrowserLaunchResult, await launch_event.event_result(raise_if_none=True, raise_if_any=True)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 574, in event_result
+    valid_results = await self.event_results_filtered(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 516, in event_results_filtered
+    raise original_error
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 490, in event_results_filtered
+    await event_result
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/models.py", line 889, in wait_for_handler_to_complete_and_return_result
+    raise self.error if isinstance(self.error, BaseException) else Exception(self.error)  # pyright: ignore[reportUnnecessaryIsInstance]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/bubus/service.py", line 1128, in execute_handler
+    result_value: Any = await asyncio.wait_for(handler_task, timeout=event_result.timeout)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdog_base.py", line 153, in unique_handler
+    result = await actual_handler(event)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 157, in _launch_browser
+    process = psutil.Process(subprocess.pid)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 314, in __init__
+    self._init(pid)
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 360, in _init
+    raise NoSuchProcess(pid, msg=msg) from None
+psutil.NoSuchProcess: process PID not found (pid=2162727)
+INFO     [Agent] 
+INFO     [Agent] Did the Agent not work as expected? Let us fix this!
+INFO     [Agent]    Open a short issue on GitHub: https://github.com/browser-use/browser-use/issues
+INFO     [BrowserSession] 📢 on_BrowserStopEvent - Calling reset() (force=True, keep_alive=None)
+INFO     [BrowserSession] ✅ Browser session reset complete
+INFO     [BrowserSession] ✅ Browser session reset complete
+P4 browser-use fill — model=qwen38-q3-64k:latest host=https://ai.siggy-lab.org form=http://127.0.0.1:8124/mock-greenhouse.html
+fixture=/home/cris/Projects/apply-app/scripts/spikes/fixtures/mock-greenhouse.html (exists=True)
+
+=== running headless (DISPLAY=:99) ===
+  headless: status=ERROR: NoSuchProcess: process PID not found (pid=2162696) wall=15.0s ram_delta=-20864KB throttled=throttled=0x0
+
+=== running headed (DISPLAY=:99) ===
+  headed: status=ERROR: NoSuchProcess: process PID not found (pid=2162727) wall=0.3s ram_delta=5360KB throttled=throttled=0x0
+
+=== P4 SUMMARY ===
+  headless: ERROR: NoSuchProcess: process PID not found (pid=2162696) | 15.0s | -20864KB | throttled=0x0
+  headed: ERROR: NoSuchProcess: process PID not found (pid=2162727) | 0.3s | 5360KB | throttled=0x0
+CHECK: headed may fail without a running X server (expected on a headless Pi). Record headless vs headed.
+
+########## P5 bot-detection baseline (DO NOT RUN WITHOUT APPROVAL) ##########
+P5 visits a public bot-detection page, which is a third-party site (rule 8).
+Pause here and tell me: which bot-detection URL you approve (or 'none yet').
+I will then pin the exact URL + command before you run it.
+
+########## SUMMARY ##########
+passed=4 failed=0
