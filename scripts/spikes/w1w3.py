@@ -20,7 +20,7 @@ import sys
 import threading
 from pathlib import Path
 
-from browser_use import Browser
+from browser_use import Browser, BrowserProfile
 from browser_use.llm import ChatOllama
 
 from workflow_use.schema.views import WorkflowDefinitionSchema
@@ -56,6 +56,27 @@ REPLAY_PROFILE = {
     "work_auth": "I am authorized to work in the US",
     "cover_letter": "CANARY cover letter body for replay.",
 }
+
+
+def _chromium_path() -> str:
+    """Resolve Playwright's Chromium path for browser-use (its own binary scan misses it on the Pi)."""
+    override = os.environ.get("BROWSER_USE_CHROMIUM_PATH", "").strip()
+    if override:
+        return override
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        return pw.chromium.executable_path
+
+
+def _browser_args() -> list:
+    raw = os.environ.get("BROWSER_USE_BROWSER_ARGS", "--no-sandbox --disable-gpu --disable-dev-shm-usage").strip()
+    return raw.split() if raw else []
+
+
+# Resolved at module level, before asyncio.run (Playwright's sync API refuses to start in an event loop).
+EXECUTABLE_PATH = _chromium_path()
+BROWSER_ARGS = _browser_args()
 
 
 def serve_form() -> http.server.HTTPServer:
@@ -104,18 +125,11 @@ def new_llm() -> ChatOllama:
 
 
 async def run_workflow(schema: WorkflowDefinitionSchema) -> dict:
-    browser = Browser(headless=True)
-    try:
-        await browser.start()
-        wf = Workflow(schema, llm=new_llm(), browser=browser, fallback_to_agent=True)
-        result = await wf.run(REPLAY_PROFILE)
-        step_types = [type(s).__name__ for s in (result.step_results or [])]
-        return {"status": getattr(result, "status", "ok"), "step_types": step_types, "result": str(result)[:400]}
-    finally:
-        try:
-            await browser.close()
-        except Exception:  # noqa: BLE001
-            pass
+    profile = BrowserProfile(executable_path=EXECUTABLE_PATH, headless=True, args=BROWSER_ARGS)
+    wf = Workflow(schema, llm=new_llm(), browser=Browser(browser_profile=profile), fallback_to_agent=True)
+    result = await wf.run(REPLAY_PROFILE)  # Workflow.run() starts and stops the browser itself
+    step_types = [type(s).__name__ for s in (result.step_results or [])]
+    return {"status": getattr(result, "status", "ok"), "step_types": step_types, "result": str(result)[:400]}
 
 
 async def main() -> None:
@@ -128,7 +142,7 @@ async def main() -> None:
     raw = WORKFLOW_FILE.read_text()
     leaks = [c for c in CANARIES if c in raw]
     print(f"\n[W1] workflow file written to {WORKFLOW_FILE}")
-    print(f"[W1] placeholders present: {{first_name}}={ '{{first_name}}' in raw }, {{email}}={ '{{email}}' in raw }")
+    print(f"[W1] placeholders present: first_name={'{first_name}' in raw}, email={'{email}' in raw}")
     print(f"[W1] canary leaks found in file: {leaks if leaks else 'NONE'}")
     print("W1 RESULT:", "PASS (no real values in workflow file)" if not leaks else "FAIL (real values leaked)")
 

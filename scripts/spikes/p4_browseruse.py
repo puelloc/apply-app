@@ -36,6 +36,27 @@ TASK = (
 )
 
 
+def _chromium_path() -> str:
+    """Resolve Playwright's Chromium path for browser-use (its own binary scan misses it on the Pi)."""
+    override = os.environ.get("BROWSER_USE_CHROMIUM_PATH", "").strip()
+    if override:
+        return override
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        return pw.chromium.executable_path
+
+
+def _browser_args() -> list:
+    raw = os.environ.get("BROWSER_USE_BROWSER_ARGS", "--no-sandbox --disable-gpu --disable-dev-shm-usage").strip()
+    return raw.split() if raw else []
+
+
+# Resolved at module level, before asyncio.run (Playwright's sync API refuses to start in an event loop).
+EXECUTABLE_PATH = _chromium_path()
+BROWSER_ARGS = _browser_args()
+
+
 def free_kb() -> int:
     out = subprocess.check_output(["free", "-k"]).decode()
     return int([l for l in out.splitlines() if l.startswith("Mem:")][0].split()[2])
@@ -56,27 +77,21 @@ def serve_form() -> http.server.HTTPServer:
 
 
 async def run_once(headless: bool) -> dict:
-    from browser_use import Agent, Browser
+    from browser_use import Agent, BrowserProfile
     from browser_use.llm import ChatOllama
 
     llm = ChatOllama(model=MODEL, host=OLLAMA_HOST, ollama_options={"num_ctx": 65536, "think": False})
-    browser = Browser(headless=headless)
+    profile = BrowserProfile(executable_path=EXECUTABLE_PATH, headless=headless, args=BROWSER_ARGS)
     before = free_kb()
     t0 = time.time()
     status = "ok"
     snippet = ""
     try:
-        await browser.start()
-        agent = Agent(task=TASK, llm=llm, browser=browser, use_vision=False, use_thinking=False, max_failures=2)
+        agent = Agent(task=TASK, llm=llm, browser_profile=profile, use_vision=False, use_thinking=False, max_failures=2)
         result = await agent.run()
         snippet = str(result)[:400]
     except Exception as e:  # noqa: BLE001
         status = f"ERROR: {type(e).__name__}: {e}"
-    finally:
-        try:
-            await browser.close()
-        except Exception:  # noqa: BLE001
-            pass
     dt = time.time() - t0
     after = free_kb()
     return {
