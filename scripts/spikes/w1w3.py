@@ -26,7 +26,7 @@ from browser_use.llm import ChatOllama
 from workflow_use.schema.views import WorkflowDefinitionSchema
 from workflow_use.workflow.service import Workflow
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://ai.siggy-lab.org:11434")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "https://ai.siggy-lab.org")
 MODEL = os.environ.get("QWEN38_TAG", "qwen38-q3-64k:latest")
 PORT = int(os.environ.get("MOCK_PORT", "8124"))
 FORM_URL = os.environ.get("FORM_URL", f"http://127.0.0.1:{PORT}/mock-greenhouse.html")

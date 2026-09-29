@@ -19,7 +19,7 @@ import threading
 import time
 from pathlib import Path
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://ai.siggy-lab.org:11434")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "https://ai.siggy-lab.org")
 MODEL = os.environ.get("QWEN38_TAG", "qwen38-q3-64k:latest")
 PORT = int(os.environ.get("MOCK_PORT", "8124"))
 DISPLAY = os.environ.get("DISPLAY", ":99")  # headed mode needs an X server (Xvfb/KasmVNC)

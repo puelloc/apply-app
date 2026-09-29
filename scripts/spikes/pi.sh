@@ -107,12 +107,12 @@ echo "PASS if total used RAM stays under ~6GB at 5 tabs with no swap thrash (si/
 # ---------------- P4: browser-use headed vs headless on mock form ----------------
 say "P4 browser-use headed vs headless (needs Ollama reachable + the venv from workflow-use.sh)"
 OLLAMA_IP="${OLLAMA_IP:-ai.siggy-lab.org}"
-curl -sS -m 5 "http://$OLLAMA_IP:11434/api/tags" >/dev/null && pass P4_ollama || fail P4_ollama
-echo "(Ollama at $OLLAMA_IP; O6 firewall must already allow the Pi.)"
+curl -sS -m 5 "https://$OLLAMA_IP/api/tags" >/dev/null && pass P4_ollama || fail P4_ollama
+echo "(Ollama at https://$OLLAMA_IP; O6 firewall must already allow the Pi.)"
 if [ -x "$HOME/apply-spikes/venv/bin/python3" ]; then
   echo "Running the P4 driver (headless vs headed) inside the spike venv:"
   source "$HOME/apply-spikes/venv/bin/activate"
-  OLLAMA_HOST="http://$OLLAMA_IP:11434" python3 "$SCRIPT_DIR/p4_browseruse.py"
+  OLLAMA_HOST="https://$OLLAMA_IP" python3 "$SCRIPT_DIR/p4_browseruse.py"
 else
   echo "Spike venv not found at ~/apply-spikes/venv — run workflow-use.sh first to create it."
 fi
