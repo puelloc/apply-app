@@ -1,0 +1,35 @@
+
+########## W0 setup + version pinning ##########
+Installing browser-use==latest and workflow-use==latest (override via BROWSER_USE_VER/WORKFLOW_USE_VER)
+    browser-use==latest
+               ^
+    workflow-use==latest
+                ^
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 114.7 MiB
+Chrome Headless Shell 153.0.8010.12 (playwright chromium-headless-shell v1243) downloaded to /home/cris/.cache/ms-playwright/chromium_headless_shell-1243
+Lockfile written to ~/apply-spikes/spikes-lock.txt (paste it back so I can pin the vendored commits).
+
+########## W-introspection (the real API) ##########
+IMPORT FAIL: workflow_use -> ModuleNotFoundError: No module named 'workflow_use'
+IMPORT FAIL: workflowuse -> ModuleNotFoundError: No module named 'workflowuse'
+IMPORT FAIL: workflow -> ModuleNotFoundError: No module named 'workflow'
+IMPORT FAIL: workflow_use.recorder -> ModuleNotFoundError: No module named 'workflow_use'
+IMPORT FAIL: workflow_use.replay -> ModuleNotFoundError: No module named 'workflow_use'
+browser_use import fail: No module named 'browser_use'
+
+########## W-fixture: mock Greenhouse form + placeholder profile + canary values ##########
+Fixture files written under ~/apply-spikes/fixture/
+
+########## W1: record with placeholders, then grep for leaks ##########
+Serve the fixture:
+  cd ~/apply-spikes/fixture && python3 -m http.server 8124
+W1 record step is finalized from the W-introspection output (the exact recorder call).
+Once a recording file exists (path from the recorder), run this leak check:
+Leak checker written to ~/apply-spikes/fixture/check-leaks.sh
+
+########## W2/W3 scaffolding ##########
+W2 (replay with profile-replay.json, stop before submit) and W3 (break a selector,
+fallback fixes it, workflow updated) are finalized from the W-introspection output.
+
+########## SUMMARY ##########
+Next: paste back spikes-lock.txt + W-introspection output so I can write the exact record/replay calls.
