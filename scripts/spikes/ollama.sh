@@ -40,9 +40,10 @@ if [ -s /tmp/o2.json ] && python3 -c "import json,sys; d=json.load(open('/tmp/o2
 else
   echo "O2 generate failed:"; cat /tmp/o2.err; head -c 400 /tmp/o2.json; echo; fail O2a_generate
 fi
-echo "--- ollama ps (model should be loaded, note SIZE) ---"; ollama ps
-echo "--- nvidia-smi (note VRAM used/free) ---"; nvidia-smi 2>&1 | sed -n '1,20p'
-echo "CHECK: does nvidia-smi show the model in VRAM with headroom? Paste the lines above."
+echo "--- ollama ps (model should be loaded, note SIZE + PROCESSOR) ---"; ollama ps
+echo "--- rocm-smi (note VRAM used/free; AMD RX 7900 XT, 20 GB) ---"; rocm-smi 2>&1 | sed -n '1,25p'
+echo "--- rocm-smi vram detail ---"; rocm-smi --showmeminfo vram 2>&1 | sed -n '1,15p'
+echo "CHECK: does rocm-smi show the model in VRAM with headroom (~3 GB free)? Paste the lines above."
 
 # ---------------- O3: ~60k tokens, no silent truncation ----------------
 say "O3 60k-token prompt_eval_count"
@@ -149,6 +150,8 @@ curl -sS "$OLLAMA/api/generate" -d "{\"model\":\"$TAG\",\"prompt\":\"hi\",\"stre
 echo "After ~2 min of idle, run: ollama ps   (model should STILL be listed, not unloaded)"
 
 say "O6 firewall (ufw) — allow ONLY the Pi"
+echo "Prereq (Ubuntu): Ollama must listen on the LAN interface, not just 127.0.0.1 —"
+echo "  you've already exposed it (ai.siggy-lab.org works), so this is satisfied; on a rebuild set OLLAMA_HOST=0.0.0.0."
 echo "Run these, replacing <PI_LAN_IP> with the Pi's LAN IP:"
 echo "  sudo ufw allow from <PI_LAN_IP> to any port 11434 proto tcp"
 echo "  sudo ufw deny 11434"

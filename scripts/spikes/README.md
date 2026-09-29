@@ -24,7 +24,7 @@ bash ollama.sh
 | Test | Pass criterion |
 | --- | --- |
 | O1 | `ollama --version` prints; `ollama show <tag>` prints the model/Modelfile with no error (architecture supported). |
-| O2 | `/api/generate` with `num_ctx:65536` succeeds; `ollama ps` shows the model; `nvidia-smi` shows VRAM with headroom. |
+| O2 | `/api/generate` with `num_ctx:65536` succeeds; `ollama ps` shows the model; `rocm-smi` shows VRAM with headroom (AMD RX 7900 XT, 20 GB). |
 | O3 | `prompt_eval_count` ≈ 60k (no silent truncation); no "context length exceeded" error. |
 | O4 | ≥49/50 valid JSON-schema outputs **and** ≥49/50 valid tool-call outputs (record the failures). |
 | O5 | `think:false` vs `think:true` shows a real difference in `eval_count`/latency; tokens/sec recorded (note which knob is honored). |

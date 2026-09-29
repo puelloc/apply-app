@@ -5,7 +5,7 @@ A single-user, fully open-source system in my home lab, run with Docker Compose.
 
 ## Hardware and language
 - **Raspberry Pi 5 (8GB) with SSD** runs everything except the model. All images must be arm64.
-- **Separate machine runs Ollama** with **Qwen3.8-27B** (dense vision-language), `num_ctx` 64k pinned in a Modelfile, and `keep_alive` set so the model isn't unloaded between jobs. The worker reaches it over the LAN at **`ai.siggy-lab.org:11434`**, and it's firewalled to accept only the Pi. The browser can't reach it.
+- **Separate machine runs Ollama** with **Qwen3.8-27B** (dense vision-language), `num_ctx` 64k pinned in a Modelfile, and `keep_alive` set so the model isn't unloaded between jobs. The worker reaches it over the LAN at **`ai.siggy-lab.org:11434`**, and it's firewalled to accept only the Pi. The browser can't reach it. The Ollama box is Ubuntu with an **AMD Radeon RX 7900 XT (20 GB VRAM, ROCm)**.
 - **Python for everything.** Go or Rust only later, if the relay, proxy, or vault becomes a concrete problem. A future UI can be TypeScript generated from the OpenAPI schema.
 - **Stack:** browser-use and workflow-use vendored at pinned commits with a lockfile and telemetry off, FastAPI, SQLite (WAL, Alembic), FastMCP, and Chromium with a persistent profile separate from my everyday browser.
 - **Already verified:** Chromium, Playwright, and browser-use run headless on the Pi. Headed mode, Qwen3.8 via Ollama, and workflow-use are still unverified.
@@ -13,7 +13,7 @@ A single-user, fully open-source system in my home lab, run with Docker Compose.
 ## Model configuration (Qwen3.8-27B)
 - Thinking is on by default. Use thinking off or low effort for deterministic mapping and simple fills. Use higher effort only for the fallback agent and open-ended answers.
 - Vision is available, but screenshots cost context and latency and are a leak surface.
-- KV cache is cheap thanks to linear-attention layers. A Q4 build is about 17 GB.
+- KV cache is cheap thanks to linear-attention layers. A Q4 build is about 17 GB — against the card's **20 GB VRAM** that leaves only ~3 GB headroom, so O2/O3 must confirm 64k context fits without CPU offload.
 - The model gets only the profile fields the current form needs, never the whole profile.
 - Large forms (Workday) can blow the 64k window, so the fallback agent needs DOM pruning.
 - To verify: Ollama support for the architecture, the thinking controls, JSON and tool-call reliability, and whether browser-use passes parameters through.
@@ -195,7 +195,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 
 **Ollama box**
 - **O1:** `ollama --version` and `ollama show <qwen3.8 tag>`. [Model loads, architecture supported.]
-- **O2:** Call `/api/generate` with `num_ctx: 65536`, then `ollama ps` and `nvidia-smi`. [Context is 64k and VRAM fits with headroom.]
+- **O2:** Call `/api/generate` with `num_ctx: 65536`, then `ollama ps` and `rocm-smi`. [Context is 64k and VRAM fits with headroom.]
 - **O3:** Send about 60k tokens of text and compare `prompt_eval_count` with the input. [No silent truncation.]
 - **O4:** Call `/api/chat` 50 times with a JSON schema in `format` and with a tool definition. [At least 98% valid. Record the failures.]
 - **O5:** Try `think: false` and any effort levels, and compare token counts and latency. [Toggle is honored, and tokens per second is recorded.]
@@ -260,6 +260,8 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | 2026-09-28 | **Discovery recorded:** `jobs-app`'s `jobs.db` currently holds 111 `job_listings`, all RemoteOK-sourced; `application_url` holds the RemoteOK redirect (`remoteOK.com/remote-jobs/...`) and `company_application_platform_id` is NULL on every row, because the careers→listings pipeline is still in flight. | Consequence: the final employer ATS URL is **not yet** in `jobs-app`, so the plan's intake step "job-board redirects (LinkedIn and Indeed links resolve to the employer's ATS)" is load-bearing and must cover RemoteOK too, and must be verified early. |
 | 2026-09-28 | **P3 RAM measurement uses mock/local pages first, and real-ATS P3 + P5 (bot-detection) are gated behind explicit approval.** | Rule 8 forbids visiting real job sites / third-party sites before N1–N6, S1, and S2 pass; the plan's own P3 ("real ATS pages") and P5 ("public bot-detection page") would otherwise violate that rule during step 0. Mock-first keeps step 0 unblocked without relaxing rule 8. |
 | 2026-09-28 | **Recorded concrete hosts.** Ollama is reachable at `ai.siggy-lab.org:11434`; the existing jobs-app API is at `https://jobapp.siggy-lab.org/`; the domain is `siggy-lab.org`. The worker's `OLLAMA_BASE_URL` uses the hostname, and intake targets the jobs-app URL. | The user supplied the two real endpoints, replacing the `<domain>` and `<OLLAMA_BOX_LAN_IP>` placeholders. |
+| 2026-09-28 | **Confirmed internal-only + Ollama on Ubuntu.** All hosts resolve only via local DNS to LAN IPs (NPM is local-only; nothing is reachable outside the network), and Ollama runs on Ubuntu. | The user confirmed LAN-only reachability, resolving the resolvability question. `ufw` (already used by O6) is the Ubuntu firewall tool, and Ollama's LAN bind is already in place. |
+| 2026-09-28 | **Ollama GPU is AMD, not NVIDIA.** The box has an **AMD Radeon RX 7900 XT (20 GB VRAM, ROCm)**, so the O2 VRAM check uses `rocm-smi` (not `nvidia-smi`). ~17 GB Q4 vs 20 GB VRAM leaves ~3 GB headroom — tight, so O2/O3 are load-bearing. | The user supplied the GPU model; the plan's O2 originally assumed `nvidia-smi`, which would have failed on ROCm. |
 
 ## Verification log
 
@@ -308,7 +310,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 ## Open questions
 
 1. **Rule 8 vs P3/P5.** The plan's P3 says "real ATS pages" and P5 says "public bot-detection page", both before N1–N6/S1/S2 pass. Default chosen (see Decision log): mock-first for P3, gate P5 + real-ATS P3 behind explicit approval. Confirm this reading is acceptable before I hand over a third-party-visit command.
-2. **Internal vs public resolvability of the hosts.** The domain is now known: `siggy-lab.org` — Ollama at `ai.siggy-lab.org`, jobs-app at `jobapp.siggy-lab.org`, and the apply-app hostnames `jobs-api.` / `jobs-mcp.` / `jobs-review.` under it. Still to verify (D1/D5, N1): whether `ai.siggy-lab.org` and `jobapp.siggy-lab.org` resolve only via local DNS to LAN IPs, or are publicly resolvable — this determines the exact firewall and NPM access-list posture.
+2. **Internal vs public resolvability of the hosts — resolved.** The domain is `siggy-lab.org` — Ollama at `ai.siggy-lab.org`, jobs-app at `jobapp.siggy-lab.org`, and the apply-app hostnames `jobs-api.` / `jobs-mcp.` / `jobs-review.` under it. Confirmed 2026-09-28: all are internal-only (local DNS → LAN IP), NPM is local-only, and they are not reachable outside the network. Firewall (O6) and NPM access-list (D5) remain the enforcement layers, verified by D1/D5/N1.
 3. **Exact Ollama tag for Qwen3.8-27B.** The precise Ollama model name/tag is unverified (that is O1's job). Scripts use a `<QWEN38_TAG>` placeholder the user sets before running.
 4. **KasmVNC arm64 image tag.** The exact multi-arch tag to pin is confirmed at P2; the spike script proposes one and records the real tag.
 5. **workflow-use feasibility.** W1–W3 verify record/replay with placeholders. If it fails, the plan already names the fallback (build a thin recorder). No decision until W1–W3 evidence is in.
@@ -320,3 +322,5 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **Recorded job-intake source.** Decided `apply-app` reads jobs from the existing `jobs-app` read-only JSON API; recorded the discovery that `application_url` is currently a RemoteOK redirect (final ATS URL not yet in `jobs-app`).
 - **Recorded the rule-8 vs P3/P5 tension** and the mock-first default for the P3 RAM spike.
 - **Recorded concrete hosts.** Ollama = `ai.siggy-lab.org:11434`; jobs-app API = `https://jobapp.siggy-lab.org/`; domain = `siggy-lab.org`. Updated the worker `OLLAMA_BASE_URL` and the spike scripts accordingly.
+- **Confirmed internal-only + Ollama on Ubuntu.** All hosts are LAN-only (local DNS → LAN IP), NPM is local-only, nothing is reachable outside the network; Ollama runs on Ubuntu (ufw). Resolved Open question #2.
+- **AMD GPU recorded.** Ollama runs on an AMD Radeon RX 7900 XT (20 GB VRAM, ROCm); switched O2's VRAM check from `nvidia-smi` to `rocm-smi` and flagged the ~3 GB headroom for the 64k-context check.
