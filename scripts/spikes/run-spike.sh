@@ -26,4 +26,4 @@ docker run --rm --network host \
   -e OLLAMA_HOST="${OLLAMA_HOST:-https://ai.siggy-lab.org}" \
   -e QWEN38_TAG="${QWEN38_TAG:-qwen38-q3-64k:latest}" \
   -e ANONYMIZED_TELEMETRY=false \
-  "$IMAGE" python3 "/spike/$DRIVER"
+  "$IMAGE" python3 -u "/spike/$DRIVER"
