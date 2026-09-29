@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Mock Greenhouse Application</title></head>
+<body><h1>Apply — Mock Greenhouse</h1>
+<form id="application" method="post" action="/apply" onsubmit="return false">
+  <fieldset>
+    <label>First name <input name="first_name" type="text" required></label><br>
+    <label>Last name  <input name="last_name"  type="text" required></label><br>
+    <label>Email      <input name="email"      type="email" required></label><br>
+    <label>Phone      <input name="phone"      type="tel"></label><br>
+    <label>LinkedIn   <input name="linkedin"   type="url"></label><br>
+    <label>Website    <input name="website"    type="url"></label><br>
+  </fieldset>
+  <fieldset>
+    <label>Years of experience <input name="years" type="number"></label><br>
+    <label>Work authorization
+      <select name="work_auth"><option value="">--</option>
+        <option>I am authorized to work in the US</option>
+        <option>I require sponsorship</option></select></label><br>
+    <label>Cover letter <textarea name="cover_letter" rows="6"></textarea></label><br>
+  </fieldset>
+  <button type="submit" id="submit">Submit Application</button>
+</form>
+<p>Mock Greenhouse fixture — no real data leaves this Pi.</p></body></html>

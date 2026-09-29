@@ -14,6 +14,7 @@
 set -uo pipefail
 
 MACHINE=workflow-use
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 
 # ---- logging + auto-commit: tee output to a timestamped log, then commit+push it to the repo ----
 LOG_DIR="${APPLY_LOG_DIR:-$HOME/apply-spikes/logs}"
@@ -156,11 +157,16 @@ SH
 chmod +x ~/apply-spikes/fixture/check-leaks.sh
 echo "Leak checker written to ~/apply-spikes/fixture/check-leaks.sh"
 
-say "W2/W3 scaffolding"
-echo "W2 (replay with profile-replay.json, stop before submit) and W3 (break a selector,"
-echo "fallback fixes it, workflow updated) are finalized from the W-introspection output."
+say "W1-W3 driver (record/replay/break against the mock form)"
+if [ -x "$HOME/apply-spikes/venv/bin/python3" ]; then
+  OLLAMA_HOST="${OLLAMA_HOST:-http://ai.siggy-lab.org:11434}" \
+  QWEN38_TAG="${QWEN38_TAG:-qwen38-q3-64k:latest}" \
+  python3 "$SCRIPT_DIR/w1w3.py"
+else
+  echo "Spike venv not found — cannot run the W1-W3 driver."
+fi
 
 say "SUMMARY"
-echo "Next: paste back spikes-lock.txt + W-introspection output so I can write the exact record/replay calls."
+echo "W1-W3 driver output is above. Lockfile: ~/apply-spikes/spikes-lock.txt"
 } 2>&1 | tee "$LOG"
 commit_results "$MACHINE"

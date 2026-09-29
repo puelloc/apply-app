@@ -12,6 +12,7 @@
 set -uo pipefail
 
 MACHINE=pi
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 
 # ---- logging + auto-commit: tee output to a timestamped log, then commit+push it to the repo ----
 LOG_DIR="${APPLY_LOG_DIR:-$HOME/apply-spikes/logs}"
@@ -105,35 +106,16 @@ echo "PASS if total used RAM stays under ~6GB at 5 tabs with no swap thrash (si/
 
 # ---------------- P4: browser-use headed vs headless on mock form ----------------
 say "P4 browser-use headed vs headless (needs Ollama reachable + the venv from workflow-use.sh)"
-echo "First confirm Ollama is reachable from the Pi (O6 Pi-side check):"
 OLLAMA_IP="${OLLAMA_IP:-ai.siggy-lab.org}"
 curl -sS -m 5 "http://$OLLAMA_IP:11434/api/tags" >/dev/null && pass P4_ollama || fail P4_ollama
 echo "(Ollama at $OLLAMA_IP; O6 firewall must already allow the Pi.)"
-echo "P4 runs a browser-use fill of the mock form, headless then headed, and records time + RAM + throttled."
-echo "Run it inside the venv created by workflow-use.sh:"
-echo "  source ~/apply-spikes/venv/bin/activate && python3 /tmp/mock/p4_browseruse.py"
-cat >/tmp/mock/p4_browseruse.py <<'PY'
-import os, subprocess, time, sys
-OLLAMA = os.environ.get("OLLAMA_IP", "127.0.0.1")
-FORM_URL = os.environ.get("FORM_URL", "http://127.0.0.1:8123/form.html")
-def free_kb():
-    out = subprocess.check_output(["free", "-k"]).decode()
-    return int([l for l in out.splitlines() if l.startswith("Mem:")][0].split()[2])
-def throttled():
-    try: return subprocess.check_output(["vcgencmd","get_throttled"]).decode().strip()
-    except Exception: return "n/a"
-for mode in ("headless", "headed"):
-    before = free_kb()
-    t0 = time.time()
-    print(f"=== {mode} ===")
-    print(f"ram_before_kb={before} throttled={throttled()}")
-    # Placeholder: the actual browser-use Agent call is filled in once the venv + API are confirmed.
-    print("TODO(browser-use agent): drive the mock form fill here (see workflow-use.sh for the pinned setup).")
-    time.sleep(1)
-    after = free_kb()
-    print(f"ram_after_kb={after} ram_delta_kb={after-before} wall_s={time.time()-t0:.1f} throttled={throttled()}")
-PY
-echo "P4 is a measurement scaffold; I will finalize the exact Agent call after W1 confirms the pinned browser-use API."
+if [ -x "$HOME/apply-spikes/venv/bin/python3" ]; then
+  echo "Running the P4 driver (headless vs headed) inside the spike venv:"
+  source "$HOME/apply-spikes/venv/bin/activate"
+  OLLAMA_HOST="http://$OLLAMA_IP:11434" python3 "$SCRIPT_DIR/p4_browseruse.py"
+else
+  echo "Spike venv not found at ~/apply-spikes/venv — run workflow-use.sh first to create it."
+fi
 
 # ---------------- P5: bot-detection page (GATED) ----------------
 say "P5 bot-detection baseline (DO NOT RUN WITHOUT APPROVAL)"
