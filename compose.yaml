@@ -1,0 +1,144 @@
+# apply-app — Docker Compose skeleton (build step 1 fills in the real images, healthchecks,
+# internal DNS, and NPM host wiring). Images are placeholders here and MUST be pinned by digest
+# in step 1. Profiles: dev (default services), test (adds mock ATS fixtures), prod (adds backup).
+
+name: apply-app
+
+x-service-common: &service-common
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  read_only: true
+  tmpfs:
+    - /tmp
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # The source of truth, owning the DB. MCP and any future UI are its clients.
+  api:
+    image: ghcr.io/apply-app/api:dev        # PIN BY DIGEST (step 1)
+    <<: *service-common
+    profiles: [dev, test, prod]
+    networks: [backend, proxy]
+    volumes:
+      - db:/data/db
+      - artifacts:/data/artifacts
+      - uploads:/data/uploads:ro
+    secrets:
+      - api_admin_token_hash
+      - api_ops_token_hash
+      - api_diagnose_token_hash
+    # healthcheck + depends_on added in step 1
+
+  # FastMCP over streamable HTTP, calling the api with a scoped token.
+  mcp:
+    image: ghcr.io/apply-app/mcp:dev        # PIN BY DIGEST (step 1)
+    <<: *service-common
+    profiles: [dev, test, prod]
+    networks: [backend, proxy]
+    secrets:
+      - mcp_api_token_hash
+    environment:
+      API_URL: http://api:8000
+
+  # Single worker: queue, agents, vault, IMAP poller, leases + heartbeats.
+  worker:
+    image: ghcr.io/apply-app/worker:dev      # PIN BY DIGEST (step 1)
+    <<: *service-common
+    profiles: [dev, test, prod]
+    networks: [backend, browser_net]
+    volumes:
+      - vault:/data/vault
+      - workflows:/data/workflows
+      - artifacts:/data/artifacts
+      - uploads:/data/uploads:ro
+    secrets:
+      - imap_user
+      - imap_pass
+    environment:
+      # Route to the Ollama box over the LAN (step 1 wires the actual host/IP).
+      OLLAMA_BASE_URL: http://<OLLAMA_BOX_LAN_IP>:11434
+    # The vault key is NOT a file secret: it is supplied at boot and lives only in worker memory
+    # (build step 4). It re-seals on every reboot.
+
+  # Headed Chromium under Xvfb + KasmVNC. CDP is reachable ONLY from the worker via a relay
+  # (build step 5). CDP is never published.
+  browser:
+    image: ghcr.io/apply-app/browser:dev     # Chromium + Xvfb + KasmVNC; PIN BY DIGEST (step 1)
+    <<: *service-common
+    profiles: [dev, test, prod]
+    networks: [browser_net]
+    volumes:
+      - browser-profile:/profile
+      - uploads:/uploads:ro
+    # no ports published here; KasmVNC is fronted over the `proxy` network in step 1.
+
+  # The browser's ONLY route out. Denies private/link-local/loopback, checks the resolved IP
+  # (DNS-rebinding defense), enforces the per-job domain allowlist, and logs all domains.
+  egress-proxy:
+    image: ghcr.io/apply-app/egress-proxy:dev # PIN BY DIGEST (step 1)
+    <<: *service-common
+    profiles: [dev, test, prod]
+    networks: [browser_net, egress]
+
+  # Local Greenhouse/Lever/Ashby fixtures for the `test` profile. Never reached by real browsers
+  # in dev/prod; used by tests N1-N6, S1-S5, W1-W3, and the adapter work.
+  mock-ats:
+    image: ghcr.io/apply-app/mock-ats:dev    # PIN BY DIGEST (step 2)
+    <<: *service-common
+    profiles: [test]
+    networks: [browser_net]
+
+  # Optional restic sidecar for prod backups (build step 11).
+  backup:
+    image: restic/restic:0.17.3              # PIN BY DIGEST (step 11)
+    <<: *service-common
+    profiles: [prod]
+    networks: [backend]
+    volumes:
+      - db:/db:ro
+      - vault:/vault:ro
+      - workflows:/workflows:ro
+      - artifacts:/artifacts:ro
+
+networks:
+  # Internal: api, mcp, worker, plus a route to the Ollama box.
+  backend:
+    internal: true
+  # Internal: worker, browser, egress-proxy. The worker listens on nothing here.
+  browser_net:
+    internal: true
+  # Non-internal on purpose: Docker internal networks have no route out, so the proxy needs this.
+  egress: {}
+  # api + mcp + KasmVNC endpoints, for NPM. If NPM runs on another machine, publish only these
+  # three ports on the Pi's LAN interface, firewalled to NPM's IP (step 1).
+  proxy: {}
+
+volumes:
+  db: {}
+  vault: {}
+  workflows: {}
+  artifacts: {}
+  browser-profile: {}
+  uploads: {}
+
+# Docker secrets (IMAP credentials + token hashes). Never commit real values; /secrets is gitignored
+# and only a .gitkeep placeholder is tracked.
+secrets:
+  imap_user:
+    file: ./secrets/imap_user.txt
+  imap_pass:
+    file: ./secrets/imap_pass.txt
+  api_admin_token_hash:
+    file: ./secrets/api_admin_token_hash.txt
+  api_ops_token_hash:
+    file: ./secrets/api_ops_token_hash.txt
+  api_diagnose_token_hash:
+    file: ./secrets/api_diagnose_token_hash.txt
+  mcp_api_token_hash:
+    file: ./secrets/mcp_api_token_hash.txt
