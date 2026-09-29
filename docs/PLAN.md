@@ -13,7 +13,7 @@ A single-user, fully open-source system in my home lab, run with Docker Compose.
 ## Model configuration (Qwen3.8-27B)
 - Thinking is on by default. Use thinking off or low effort for deterministic mapping and simple fills. Use higher effort only for the fallback agent and open-ended answers.
 - Vision is available, but screenshots cost context and latency and are a leak surface.
-- KV cache is cheap thanks to linear-attention layers. The Q4_K_M build measures **19 GB** (not the ~17 GB assumed), and at 64k context it does **not** fit in the card's **20 GB VRAM** — O2 measured 93% VRAM used with ~24% of layers offloaded to CPU (see Decision log for the fallback options).
+- KV cache is cheap thanks to linear-attention layers. The Q4_K_M build measures **19 GB** and at 64k it does **not** fit in 20 GB VRAM (93% used, ~24% CPU offload). The **Q3_K_M build fits 100% on-GPU at 64k** (84% VRAM) and is ~2–3× faster, so Q3_K_M at 64k is the working model; Q3 drops the vision projector (see Decision log).
 - The model gets only the profile fields the current form needs, never the whole profile.
 - Large forms (Workday) can blow the 64k window, so the fallback agent needs DOM pruning.
 - To verify: Ollama support for the architecture, the thinking controls, JSON and tool-call reliability, and whether browser-use passes parameters through.
@@ -268,6 +268,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | 2026-09-28 | **O2 headroom assumption is wrong (rule 10).** The Q4_K_M build is 19 GB (not ~17 GB), and at 64k context it does not fit in the 20 GB VRAM: 93% VRAM used, ~24% of layers offloaded to CPU. Fallbacks to choose from: (a) smaller quant (Q4_0 / Q3_K_M) so it fits on-GPU, (b) lower `num_ctx` (e.g. 32k), (c) accept the CPU offload (works, ~17 tok/s generation). | Measured by O2 (`rocm-smi` + `ollama ps`). Disproves the plan's "VRAM fits with headroom" clause, so O2 is marked fail and a fallback must be chosen before L1 and long-form runs. |
 | 2026-09-28 | **CPU-offload cost + local models recorded.** Offloaded Q4_K_M 64k generates at 17.4 tok/s (think off); a fully-on-GPU 27B Q4 on the 7900 XT is ~30–35 tok/s, so offload ≈ 2× slower on decode and ~2–3× on prefill. The user already has `qwen38-q3-32k:latest` and `batiai/qwen3.8-27b:q3` (13 GB Q3, 32k) locally, which would fit fully on-GPU. | Quantifies Open question #6: three real options — keep Q4_K_M 64k + offload, use the local Q3 32k, or build a Q3_K_M at 64k. |
 | 2026-09-28 | **Ollama spike now sweeps candidates + builds Q3-at-64k.** `ollama.sh` loops over `qwen38-q3-32k`, `batiai/qwen3.8-27b:q3`, `qwen3.8-27b-120k`, `qwen-32k`, and — if absent — creates `qwen38-q3-64k:latest` by rebasing the local Q3 weights with `num_ctx 65536` (no GGUF download), guarded by an existence check. Each model writes a model-named timestamped log (no overwrite) and is committed/pushed as it finishes. | The user asked to test the remaining models, not overwrite earlier results, and to include the Modelfile creation for option (C). Single-model mode via `QWEN38_TAG` skips the build. |
+| 2026-09-28 | **Working model: `qwen38-q3-64k:latest` (Q3_K_M, 64k).** Sweep results: every Q3 model loads at `num_ctx 65536` with **100% GPU**, VRAM 84% (18.1 GB / 21.5 GB), 50/50 JSON + 50/50 tool validity, think:false tok/s ~36 (vs ~11–14 for the offloaded Q4). The Q4 64k/120k both offload ~24% to CPU. Q3 has **no vision projector** (Q4 does), so `qwen3.8-27b-64k:latest` (Q4, vision) is kept as the vision fallback. | Decisive O2/O4/O5 data resolves Open question #6. The plan already treats vision as optional/leak-surface, so Q3 (fits, fast, no vision) is the default; Q4-vision is the fallback. |
 
 ## Verification log
 
@@ -320,7 +321,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 3. ~~Exact Ollama tag for Qwen3.8-27B~~ **Resolved:** `qwen3.8-27b-64k:latest` (O1; `ollama` 0.33.3, architecture `qwen35`, Q4_K_M).
 4. ~~KasmVNC arm64 image tag~~ **Resolved:** `kasmweb/chromium:1.16.1` is multi-arch (arm64 manifest present) and starts on the Pi (P2 pass).
 5. **workflow-use feasibility.** W1–W3 verify record/replay with placeholders. If it fails, the plan already names the fallback (build a thin recorder). No decision until W1–W3 evidence is in.
-6. **VRAM fallback (from O2 fail).** Choose: (a) keep Q4_K_M 64k + ~24% CPU offload (~2x slower decode, ~2–3x prefill), (b) use the already-local Q3 32k (`qwen38-q3-32k:latest`, 13 GB, full GPU but 32k context), or (c) build a Q3_K_M at 64k (~13 GB, full GPU, 64k). L1 eval decides Q3 vs Q4 quality.
+6. ~~VRAM fallback~~ **Resolved:** use `qwen38-q3-64k:latest` (Q3_K_M, 64k, 100% GPU, 84% VRAM, 100% JSON/tool validity, ~36 tok/s think-off). The "32k"/"16k" Q3 tags load at 64k anyway (their `num_ctx` was just the default; real max is 262144). Q3 lacks vision; `qwen3.8-27b-64k:latest` (Q4, vision, offloaded) is the vision fallback.
 
 ## Changelog
 
@@ -337,3 +338,4 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **VRAM assumption corrected.** Q4_K_M is 19 GB and 64k context does not fit in 20 GB VRAM (93% used, ~24% CPU offload) — fallbacks proposed in Decision log / Open question #6.
 - **CPU-offload cost quantified + local Q3 models noted.** 17.4 tok/s (think off) with offload vs ~30–35 full-GPU; user has 13 GB Q3 32k models locally. Refined the fallback to three concrete options.
 - **Ollama spike now sweeps models + builds Q3-64k.** Multi-model loop with per-model no-overwrite logs; creates `qwen38-q3-64k:latest` from the local Q3 weights (existence-checked) as fallback option (C).
+- **Model sweep complete — Q3_K_M at 64k chosen.** All 5 candidates tested: Q3 models load at 64k with 100% GPU (84% VRAM, ~36 tok/s) and 100% JSON/tool validity, vs Q4's ~24% CPU offload. `qwen38-q3-64k:latest` is the working model; Q4-vision is the fallback.

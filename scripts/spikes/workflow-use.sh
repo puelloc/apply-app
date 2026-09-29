@@ -55,11 +55,18 @@ mkdir -p ~/apply-spikes && cd ~/apply-spikes
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip -q
-BU_VER="${BROWSER_USE_VER:-latest}"
-WU_VER="${WORKFLOW_USE_VER:-latest}"
-echo "Installing browser-use==$BU_VER and workflow-use==$WU_VER (override via BROWSER_USE_VER/WORKFLOW_USE_VER)"
-pip install "browser-use==$BU_VER" 2>&1 | tail -2
-pip install "workflow-use==$WU_VER" 2>&1 | tail -2
+BU_SPEC="browser-use"
+[ -n "${BROWSER_USE_VER:-}" ] && BU_SPEC="browser-use==${BROWSER_USE_VER}"
+WU_SPEC="workflow-use"
+[ -n "${WORKFLOW_USE_VER:-}" ] && WU_SPEC="workflow-use==${WORKFLOW_USE_VER}"
+echo "Installing $BU_SPEC and $WU_SPEC (pin via BROWSER_USE_VER/WORKFLOW_USE_VER)"
+pip install "$BU_SPEC" 2>&1 | tail -3
+pip install "$WU_SPEC" 2>&1 | tail -3
+if pip show workflow-use >/dev/null 2>&1; then
+  echo "W1 NOTE: workflow-use package installed (pip name confirmed)."
+else
+  echo "W1 NOTE: workflow-use is NOT pip-installable — W1 blocked; plan fallback = build a thin recorder."
+fi
 pip install playwright -q 2>&1 | tail -1
 python3 -m playwright install chromium 2>&1 | tail -2
 pip freeze > spikes-lock.txt
