@@ -262,6 +262,8 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | 2026-09-28 | **Recorded concrete hosts.** Ollama is reachable at `ai.siggy-lab.org:11434`; the existing jobs-app API is at `https://jobapp.siggy-lab.org/`; the domain is `siggy-lab.org`. The worker's `OLLAMA_BASE_URL` uses the hostname, and intake targets the jobs-app URL. | The user supplied the two real endpoints, replacing the `<domain>` and `<OLLAMA_BOX_LAN_IP>` placeholders. |
 | 2026-09-28 | **Confirmed internal-only + Ollama on Ubuntu.** All hosts resolve only via local DNS to LAN IPs (NPM is local-only; nothing is reachable outside the network), and Ollama runs on Ubuntu. | The user confirmed LAN-only reachability, resolving the resolvability question. `ufw` (already used by O6) is the Ubuntu firewall tool, and Ollama's LAN bind is already in place. |
 | 2026-09-28 | **Ollama GPU is AMD, not NVIDIA.** The box has an **AMD Radeon RX 7900 XT (20 GB VRAM, ROCm)**, so the O2 VRAM check uses `rocm-smi` (not `nvidia-smi`). ~17 GB Q4 vs 20 GB VRAM leaves ~3 GB headroom — tight, so O2/O3 are load-bearing. | The user supplied the GPU model; the plan's O2 originally assumed `nvidia-smi`, which would have failed on ROCm. |
+| 2026-09-28 | **KasmVNC arm64 tag confirmed.** `kasmweb/chromium:1.16.1` is multi-arch (both `amd64` and `arm64` manifests present) and starts on the Pi (P2 pass). | P2's manifest inspection + container start resolved Open question #4; the arm64 image is this tag. |
+| 2026-09-28 | **Spike scripts auto-log + auto-commit/push.** Each spike script tees its output to `~/apply-spikes/logs/<machine>-<timestamp>.log` and at the end commits it to `docs/spikes/runs/<machine>/` in this repo and pushes. Push requires git credentials on that machine; on failure the log is saved and the commit is left locally. | The user asked for results to be logged to a file and git-committed/pushed so the agent can read them from the repo instead of copy-paste. |
 
 ## Verification log
 
@@ -273,8 +275,8 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | O4 | untested | | |
 | O5 | untested | | |
 | O6 | untested | | |
-| P1 | untested | | |
-| P2 | untested | | |
+| P1 | pass | 2026-09-28 | `uname -m` = `aarch64`; `docker compose version` = v5.4.0; `vcgencmd get_throttled` = `throttled=0x0`. |
+| P2 | pass | 2026-09-28 | `kasmweb/chromium:1.16.1` has an arm64 manifest; image pulled; container `kasmvnc-spike` Up (`P2_start PASS`). "Connect through NPM with WebSockets" leg not yet evidenced — deferred to D3. |
 | P3 | untested | | |
 | P4 | untested | | |
 | P5 | untested | | |
@@ -312,7 +314,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 1. **Rule 8 vs P3/P5.** The plan's P3 says "real ATS pages" and P5 says "public bot-detection page", both before N1–N6/S1/S2 pass. Default chosen (see Decision log): mock-first for P3, gate P5 + real-ATS P3 behind explicit approval. Confirm this reading is acceptable before I hand over a third-party-visit command.
 2. **Internal vs public resolvability of the hosts — resolved.** The domain is `siggy-lab.org` — Ollama at `ai.siggy-lab.org`, jobs-app at `jobapp.siggy-lab.org`, and the apply-app hostnames `jobs-api.` / `jobs-mcp.` / `jobs-review.` under it. Confirmed 2026-09-28: all are internal-only (local DNS → LAN IP), NPM is local-only, and they are not reachable outside the network. Firewall (O6) and NPM access-list (D5) remain the enforcement layers, verified by D1/D5/N1.
 3. **Exact Ollama tag for Qwen3.8-27B.** The precise Ollama model name/tag is unverified (that is O1's job). Scripts use a `<QWEN38_TAG>` placeholder the user sets before running.
-4. **KasmVNC arm64 image tag.** The exact multi-arch tag to pin is confirmed at P2; the spike script proposes one and records the real tag.
+4. ~~KasmVNC arm64 image tag~~ **Resolved:** `kasmweb/chromium:1.16.1` is multi-arch (arm64 manifest present) and starts on the Pi (P2 pass).
 5. **workflow-use feasibility.** W1–W3 verify record/replay with placeholders. If it fails, the plan already names the fallback (build a thin recorder). No decision until W1–W3 evidence is in.
 
 ## Changelog
@@ -324,3 +326,5 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **Recorded concrete hosts.** Ollama = `ai.siggy-lab.org:11434`; jobs-app API = `https://jobapp.siggy-lab.org/`; domain = `siggy-lab.org`. Updated the worker `OLLAMA_BASE_URL` and the spike scripts accordingly.
 - **Confirmed internal-only + Ollama on Ubuntu.** All hosts are LAN-only (local DNS → LAN IP), NPM is local-only, nothing is reachable outside the network; Ollama runs on Ubuntu (ufw). Resolved Open question #2.
 - **AMD GPU recorded.** Ollama runs on an AMD Radeon RX 7900 XT (20 GB VRAM, ROCm); switched O2's VRAM check from `nvidia-smi` to `rocm-smi` and flagged the ~3 GB headroom for the 64k-context check.
+- **P1 and P2 pass.** Pi is `aarch64` with `throttled=0x0`; `kasmweb/chromium:1.16.1` is arm64-capable and started under KasmVNC (NPM/WebSocket leg deferred to D3).
+- **Spike scripts now auto-log + auto-commit/push** their results to `docs/spikes/runs/<machine>/`.

@@ -10,6 +10,40 @@
 #   2) the full output of any section that printed "FAIL" or a traceback.
 set -uo pipefail
 
+MACHINE=ollama
+
+# ---- logging + auto-commit: tee output to a timestamped log, then commit+push it to the repo ----
+LOG_DIR="${APPLY_LOG_DIR:-$HOME/apply-spikes/logs}"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/${MACHINE}-$(date +%Y%m%d-%H%M%S).log"
+
+commit_results() {
+  local repo="${APPLY_REPO:-}"
+  if [ -z "$repo" ]; then
+    repo="$(git -C "$(cd "$(dirname "$0")" 2>/dev/null && pwd)" rev-parse --show-toplevel 2>/dev/null || true)"
+  fi
+  if [ -z "$repo" ]; then
+    repo="$HOME/apply-app"
+    if [ ! -d "$repo/.git" ]; then
+      git clone https://github.com/puelloc/apply-app.git "$repo" >/dev/null 2>&1 || {
+        echo "COMMIT SKIPPED: no repo at $repo and clone failed. Log saved at $LOG"; return 0; }
+    fi
+  fi
+  git -C "$repo" config user.email >/dev/null 2>&1 || git -C "$repo" config user.email "spike-bot@localhost"
+  git -C "$repo" config user.name  >/dev/null 2>&1 || git -C "$repo" config user.name  "spike-bot"
+  local dest="$repo/docs/spikes/runs/$MACHINE"
+  mkdir -p "$dest"
+  cp "$LOG" "$dest/$(basename "$LOG")"
+  export GIT_TERMINAL_PROMPT=0
+  if git -C "$repo" add "docs/spikes/runs/$MACHINE/$(basename "$LOG")" 2>&1 \
+     && git -C "$repo" commit -q -m "spike($MACHINE): results $(basename "$LOG")" 2>&1 \
+     && git -C "$repo" push origin main 2>&1; then
+    echo "RESULTS COMMITTED + PUSHED: $repo/docs/spikes/runs/$MACHINE/$(basename "$LOG")"
+  else
+    echo "COMMIT/PUSH FAILED — log saved at $LOG (and staged in $repo). Fix git credentials on this machine to auto-push."
+  fi
+}
+
 TAG="${QWEN38_TAG:-}"
 OLLAMA="http://localhost:11434"
 PASS=0; FAIL=0; FAILED_IDS=()
@@ -26,6 +60,7 @@ if [ -z "$TAG" ]; then
   exit 2
 fi
 
+{
 # ---------------- O1: version + model loads ----------------
 say "O1 version and model"
 ollama --version || true
@@ -162,3 +197,5 @@ echo "Then test from ANOTHER host: curl -sS -m 5 http://ai.siggy-lab.org:11434/a
 say "SUMMARY"
 echo "passed=$PASS failed=$FAIL"
 [ ${#FAILED_IDS[@]} -gt 0 ] && echo "failed_ids: ${FAILED_IDS[*]}"
+} 2>&1 | tee "$LOG"
+commit_results "$MACHINE"
