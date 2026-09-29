@@ -18,12 +18,17 @@ machine). If push fails, the log is still saved and committed locally.
 **Run on:** the machine hosting Ollama + the GPU. Needs `curl` + `python3`.
 
 ```bash
-export QWEN38_TAG="<your qwen3.8 tag>"   # e.g. qwen3.8-27b:q4_K_M
-bash ollama.sh
+bash ollama.sh                 # default: build q3-64k (if absent) + test the whole candidate list
+QWEN38_TAG=<tag> bash ollama.sh   # test a single model (skips the q3-64k build)
 ```
 
-**Paste back:** (1) the `=== SUMMARY ===` block, (2) any section that printed `FAIL` or a traceback,
-(3) for O2 the `ollama ps` + `nvidia-smi` lines, (4) for O6 the `sudo ufw status verbose` output.
+Each model writes its own timestamped log (named by model, so nothing overwrites) and is
+committed/pushed to `docs/spikes/runs/ollama/` as it finishes. The default run first builds
+`qwen38-q3-64k:latest` from the local Q3 weights with `num_ctx 65536` (existence-checked, no
+download), then tests it alongside the other candidates.
+
+**Paste back:** nothing required for the default run — results auto-commit. If a model FAILs or the
+push fails, paste that model's log section. O6 (`rocm-smi` VRAM + `sudo ufw status verbose`) is manual.
 
 | Test | Pass criterion |
 | --- | --- |

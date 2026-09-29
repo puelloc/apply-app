@@ -1,52 +1,40 @@
 #!/usr/bin/env bash
-# Spike O1-O6 — run ON THE OLLAMA BOX (the machine hosting Ollama + the GPU).
-# Needs: curl, python3. If python3 is missing, install it first and re-run.
+# Spike O1-O6 — run ON THE OLLAMA BOX. Tests each model in MODELS (or a single model via
+# QWEN38_TAG). Each model gets its own timestamped log (never overwrites), and results are
+# auto-committed to docs/spikes/runs/ollama/ and pushed as they finish.
 #
-# Set your model tag once (or export it before running):
-#   export QWEN38_TAG="<your qwen3.8 tag>"   # e.g. qwen3.8-27b:q4_K_M
+# Default mode also builds a Q3-at-64k model from the local Q3 weights (no download), guarded by
+# an existence check, then tests it too. This is fallback option (C) for Open question #6.
 #
-# Paste back, for the agent:
-#   1) the final "=== SUMMARY ===" block, AND
-#   2) the full output of any section that printed "FAIL" or a traceback.
+#   ./ollama.sh                        # build q3-64k + test the default list
+#   QWEN38_TAG=<tag> ./ollama.sh       # test just one model (skips the q3-64k build)
 set -uo pipefail
 
 MACHINE=ollama
+OLLAMA="http://localhost:11434"
 
-# ---- logging + auto-commit: tee output to a timestamped log, then commit+push it to the repo ----
+# ---- models to test: the Qwen3.8-27B variants relevant to the VRAM fallback decision ----
+# qwen3.8-27b-64k:latest was already tested (O1-O5 recorded); these are the remainder.
+if [ -n "${QWEN38_TAG:-}" ]; then
+  MODELS=( "$QWEN38_TAG" )
+  BUILD_Q3_64K=0
+else
+  MODELS=(
+    qwen38-q3-32k:latest        # Q3, 13 GB, 32k — fallback (B)
+    batiai/qwen3.8-27b:q3       # Q3, 13 GB — fallback (B) variant
+    qwen3.8-27b-120k:latest     # Q4_K_M, 17 GB, 120k — context ceiling probe
+    qwen-32k:latest             # 17 GB, 32k — Q4 at lower context (O1 reveals what it is)
+  )
+  BUILD_Q3_64K=1
+fi
+
+# Q3-at-64k (fallback C): rebase the local Q3 weights with num_ctx 65536. No GGUF download.
+Q3_64K="qwen38-q3-64k:latest"
+Q3_SRC="${Q3_SRC:-qwen38-q3-32k:latest}"
+
+# ---- logging: one timestamped file per model, so runs never overwrite each other ----
 LOG_DIR="${APPLY_LOG_DIR:-$HOME/apply-spikes/logs}"
 mkdir -p "$LOG_DIR"
-LOG="$LOG_DIR/${MACHINE}-$(date +%Y%m%d-%H%M%S).log"
-
-commit_results() {
-  local repo="${APPLY_REPO:-}"
-  if [ -z "$repo" ]; then
-    repo="$(git -C "$(cd "$(dirname "$0")" 2>/dev/null && pwd)" rev-parse --show-toplevel 2>/dev/null || true)"
-  fi
-  if [ -z "$repo" ]; then
-    repo="$HOME/apply-app"
-    if [ ! -d "$repo/.git" ]; then
-      git clone https://github.com/puelloc/apply-app.git "$repo" >/dev/null 2>&1 || {
-        echo "COMMIT SKIPPED: no repo at $repo and clone failed. Log saved at $LOG"; return 0; }
-    fi
-  fi
-  git -C "$repo" config user.email >/dev/null 2>&1 || git -C "$repo" config user.email "spike-bot@localhost"
-  git -C "$repo" config user.name  >/dev/null 2>&1 || git -C "$repo" config user.name  "spike-bot"
-  local dest="$repo/docs/spikes/runs/$MACHINE"
-  mkdir -p "$dest"
-  cp "$LOG" "$dest/$(basename "$LOG")"
-  export GIT_TERMINAL_PROMPT=0
-  if git -C "$repo" add "docs/spikes/runs/$MACHINE/$(basename "$LOG")" 2>&1 \
-     && git -C "$repo" commit -q -m "spike($MACHINE): results $(basename "$LOG")" 2>&1 \
-     && git -C "$repo" push origin main 2>&1; then
-    echo "RESULTS COMMITTED + PUSHED: $repo/docs/spikes/runs/$MACHINE/$(basename "$LOG")"
-  else
-    echo "COMMIT/PUSH FAILED — log saved at $LOG (and staged in $repo). Fix git credentials on this machine to auto-push."
-  fi
-}
-
-TAG="${QWEN38_TAG:-}"
-OLLAMA="http://localhost:11434"
-PASS=0; FAIL=0; FAILED_IDS=()
 
 say()  { printf '\n########## %s ##########\n' "$1"; }
 pass() { PASS=$((PASS+1)); printf 'RESULT: %-3s PASS\n' "$1"; }
@@ -55,41 +43,101 @@ fail() { FAIL=$((FAIL+1)); FAILED_IDS+=("$1"); printf 'RESULT: %-3s FAIL\n' "$1"
 command -v curl    >/dev/null || { echo "curl is required"; exit 2; }
 command -v python3 >/dev/null || { echo "python3 is required"; exit 2; }
 
-if [ -z "$TAG" ]; then
-  echo "QWEN38_TAG is not set. Export it (export QWEN38_TAG=...) and re-run."
-  exit 2
-fi
+commit_results() {
+  local logfile="$1"; local safe="$2"
+  local repo="${APPLY_REPO:-}"
+  if [ -z "$repo" ]; then
+    repo="$(git -C "$(cd "$(dirname "$0")" 2>/dev/null && pwd)" rev-parse --show-toplevel 2>/dev/null || true)"
+  fi
+  if [ -z "$repo" ]; then
+    repo="$HOME/apply-app"
+    if [ ! -d "$repo/.git" ]; then
+      git clone https://github.com/puelloc/apply-app.git "$repo" >/dev/null 2>&1 || {
+        echo "COMMIT SKIPPED: no repo at $repo and clone failed. Log saved at $logfile"; return 0; }
+    fi
+  fi
+  git -C "$repo" config user.email >/dev/null 2>&1 || git -C "$repo" config user.email "spike-bot@localhost"
+  git -C "$repo" config user.name  >/dev/null 2>&1 || git -C "$repo" config user.name  "spike-bot"
+  local dest="$repo/docs/spikes/runs/$MACHINE"
+  mkdir -p "$dest"
+  cp "$logfile" "$dest/$(basename "$logfile")"
+  export GIT_TERMINAL_PROMPT=0
+  if git -C "$repo" add "docs/spikes/runs/$MACHINE/$(basename "$logfile")" 2>&1 \
+     && git -C "$repo" commit -q -m "spike($MACHINE/$safe): results $(basename "$logfile")" 2>&1 \
+     && git -C "$repo" push origin main 2>&1; then
+    echo "RESULTS COMMITTED + PUSHED: $dest/$(basename "$logfile")"
+  else
+    echo "COMMIT/PUSH FAILED — log saved at $logfile (staged in $repo). Fix git credentials on this machine to auto-push."
+  fi
+}
 
-{
-# ---------------- O1: version + model loads ----------------
-say "O1 version and model"
-ollama --version || true
-ollama show "$TAG" >/tmp/o1_show.txt 2>&1 && { pass O1; } || { fail O1; }
-sed -n '1,40p' /tmp/o1_show.txt
+# Build qwen38-q3-64k from the local Q3 weights, only if it doesn't already exist.
+ensure_q3_64k() {
+  if ollama show "$Q3_64K" >/dev/null 2>&1; then
+    echo "SKIP: $Q3_64K already exists — not rebuilding."
+    return 0
+  fi
+  if ! ollama show "$Q3_SRC" >/dev/null 2>&1; then
+    echo "ERROR: source model $Q3_SRC does not exist, so $Q3_64K cannot be built."
+    return 1
+  fi
+  local mf="$LOG_DIR/q3-64k.Modelfile"
+  cat > "$mf" <<EOF
+FROM $Q3_SRC
+PARAMETER num_ctx 65536
+EOF
+  echo "Creating $Q3_64K from $Q3_SRC (num_ctx 65536):"
+  ollama create "$Q3_64K" -f "$mf" 2>&1 | tail -15
+  if ollama show "$Q3_64K" >/dev/null 2>&1; then
+    echo "CREATED: $Q3_64K"
+  else
+    echo "CREATE FAILED: $Q3_64K — see output above."
+  fi
+}
 
-# ---------------- O2: num_ctx 65536, VRAM headroom ----------------
-say "O2 num_ctx 65536"
-curl -sS "$OLLAMA/api/generate" -d "{\"model\":\"$TAG\",\"prompt\":\"ping\",\"stream\":false,\"options\":{\"num_ctx\":65536}}" >/tmp/o2.json 2>/tmp/o2.err
-if [ -s /tmp/o2.json ] && python3 -c "import json,sys; d=json.load(open('/tmp/o2.json')); print('response ok:', d.get('response','')[:40])" 2>/dev/null; then
-  pass O2a_generate
-else
-  echo "O2 generate failed:"; cat /tmp/o2.err; head -c 400 /tmp/o2.json; echo; fail O2a_generate
-fi
-echo "--- ollama ps (model should be loaded, note SIZE + PROCESSOR) ---"; ollama ps
-echo "--- rocm-smi (note VRAM used/free; AMD RX 7900 XT, 20 GB) ---"; rocm-smi 2>&1 | sed -n '1,25p'
-echo "--- rocm-smi vram detail ---"; rocm-smi --showmeminfo vram 2>&1 | sed -n '1,15p'
-echo "CHECK: does rocm-smi show the model in VRAM with headroom (~3 GB free)? Paste the lines above."
+run_tests() {
+  local TAG="$1"
+  local safe; safe="$(printf '%s' "$TAG" | tr '/:' '__')"
+  local LOG="$LOG_DIR/${MACHINE}-${safe}-$(date +%Y%m%d-%H%M%S).log"
 
-# ---------------- O3: ~60k tokens, no silent truncation ----------------
-say "O3 60k-token prompt_eval_count"
-python3 - "$TAG" <<'PY'
+  {
+    PASS=0; FAIL=0; FAILED_IDS=()
+    echo "===== MODEL: $TAG ====="
+
+    # O1: version + model info (context length, quant, arch, capabilities, default num_ctx)
+    say "O1 version and model"
+    ollama --version || true
+    ollama show "$TAG" >/tmp/o1_show.txt 2>&1 && { pass O1; } || { fail O1; }
+    sed -n '1,45p' /tmp/o1_show.txt
+
+    # O2: load at num_ctx 65536, then measure offload + VRAM. If 64k is refused, retry native
+    # context so we still capture the offload/VRAM number for the model's real ceiling.
+    say "O2 load at 64k + offload/VRAM"
+    curl -sS "$OLLAMA/api/generate" \
+      -d "{\"model\":\"$TAG\",\"prompt\":\"ping\",\"stream\":false,\"options\":{\"num_ctx\":65536}}" \
+      >/tmp/o2.json 2>/tmp/o2.err
+    if python3 -c "import json; d=json.load(open('/tmp/o2.json')); assert 'response' in d" 2>/dev/null; then
+      pass O2_64k_load
+    else
+      echo "64k load returned no response (model max context likely < 64k):"
+      head -c 250 /tmp/o2.json; echo; head -3 /tmp/o2.err
+      echo "Retrying at native context to still capture offload/VRAM:"
+      curl -sS "$OLLAMA/api/generate" -d "{\"model\":\"$TAG\",\"prompt\":\"ping\",\"stream\":false}" >/tmp/o2.json 2>/tmp/o2.err
+      python3 -c "import json; d=json.load(open('/tmp/o2.json')); print('native response:', d.get('response','')[:40])" 2>/dev/null \
+        || echo "native load also failed"
+    fi
+    echo "--- ollama ps (SIZE + PROCESSOR offload% + CONTEXT) ---"; ollama ps
+    echo "--- rocm-smi vram (20 GB card) ---"; rocm-smi --showmeminfo vram 2>&1 | sed -n '1,15p'
+    echo "CHECK: PROCESSOR '100% GPU' + VRAM < ~90% means it fits on-GPU. Paste the lines above."
+
+    # O3: ~60k-token truncation check (models whose max context < 64k will error here — that IS the data point).
+    say "O3 60k-token prompt_eval_count"
+    python3 - "$TAG" <<'PY'
 import json, sys, urllib.request
 tag = sys.argv[1]
-# ~60k tokens of English text (approx 4 chars/token => 240k chars).
 para = ("The quick brown fox jumps over the lazy dog and the project ships reliable software. "
-        "Remote-friendly engineering with careful review and steady progress. ") 
+        "Remote-friendly engineering with careful review and steady progress. ")
 text = (para * 12000)[:360000]
-est_tokens = len(text)//6
 req = urllib.request.Request("http://localhost:11434/api/generate",
     data=json.dumps({"model": tag, "prompt": text, "stream": False,
                      "options": {"num_ctx": 65536}}).encode(),
@@ -97,16 +145,17 @@ req = urllib.request.Request("http://localhost:11434/api/generate",
 try:
     d = json.load(urllib.request.urlopen(req, timeout=600))
     pe = d.get("prompt_eval_count"); ec = d.get("eval_count")
-    print(f"input_chars={len(text)} est_tokens~{est_tokens}")
+    print(f"input_chars={len(text)} est_tokens~{len(text)//6}")
     print(f"prompt_eval_count={pe} eval_count={ec}")
-    print("PASS" if (pe and pe >= 55000) else "CHECK: prompt_eval_count looks low -> possible truncation")
+    print("PASS" if (pe and pe >= 55000) else "CHECK: prompt_eval_count low -> possible truncation")
 except urllib.error.HTTPError as e:
-    print("HTTP error", e.code, e.read()[:500])
+    print("HTTP error", e.code, e.read()[:300].decode('utf-8','replace'))
+    print("NOTE: a context-length error here means the model's max context < 64k (expected for 32k models).")
 PY
 
-# ---------------- O4: 50 JSON-schema + 50 tool-call chats ----------------
-say "O4 JSON schema + tool calls (50 each)"
-python3 - "$TAG" <<'PY'
+    # O4: JSON schema + tool calls (50 each)
+    say "O4 JSON schema + tool calls (50 each)"
+    python3 - "$TAG" <<'PY'
 import json, sys, urllib.request
 tag = sys.argv[1]
 def chat(payload):
@@ -151,14 +200,13 @@ for b in tool_bad[:3]: print("  tool-fail:", b)
 print("PASS" if (schema_ok >= 49 and tool_ok >= 49) else "CHECK: below 98%")
 PY
 
-# ---------------- O5: think toggle + throughput ----------------
-say "O5 think on/off"
-python3 - "$TAG" <<'PY'
+    # O5: think toggle + throughput (native context, so it works for every model)
+    say "O5 think on/off"
+    python3 - "$TAG" <<'PY'
 import json, sys, time, urllib.request
 tag = sys.argv[1]
-def gen(options, think):
-    body = {"model": tag, "stream": False, "options": options,
-            "prompt": "In one short sentence, name a planet."}
+def gen(think):
+    body = {"model": tag, "stream": False, "prompt": "In one short sentence, name a planet."}
     if think is not None:
         body["think"] = think
     req = urllib.request.Request("http://localhost:11434/api/generate",
@@ -169,7 +217,7 @@ def gen(options, think):
     return d, dt
 for label, think in [("think:true", True), ("think:false", False)]:
     try:
-        d, dt = gen({"num_ctx": 65536}, think)
+        d, dt = gen(think)
         ec = d.get("eval_count"); ed = d.get("eval_duration", 0)
         tps = (ec / (ed/1e9)) if ed else 0
         print(f"{label}: eval_count={ec} eval_duration_ns={ed} tok/s={tps:.1f} wall={dt:.2f}s")
@@ -179,11 +227,39 @@ for label, think in [("think:true", True), ("think:false", False)]:
 print("CHECK: does think:false change eval_count/timing? Record which knob is honored.")
 PY
 
-# ---------------- O6: keep_alive + firewall ----------------
-say "O6 keep_alive"
-curl -sS "$OLLAMA/api/generate" -d "{\"model\":\"$TAG\",\"prompt\":\"hi\",\"stream\":false,\"keep_alive\":\"30m\"}" >/dev/null && echo "keep_alive set to 30m"
-echo "After ~2 min of idle, run: ollama ps   (model should STILL be listed, not unloaded)"
+    say "SUMMARY"
+    echo "model=$TAG passed=$PASS failed=$FAIL"
+    [ ${#FAILED_IDS[@]} -gt 0 ] && echo "failed_ids: ${FAILED_IDS[*]}"
+  } 2>&1 | tee "$LOG"
 
+  commit_results "$LOG" "$safe"
+}
+
+# ---- main ----
+if [ "$BUILD_Q3_64K" = "1" ]; then
+  CREATE_LOG="$LOG_DIR/${MACHINE}-create-q3-64k-$(date +%Y%m%d-%H%M%S).log"
+  { ensure_q3_64k; } 2>&1 | tee "$CREATE_LOG"
+  commit_results "$CREATE_LOG" "create-q3-64k"
+  MODELS+=( "$Q3_64K" )   # test the model we just ensured exists
+fi
+
+prev=""
+for m in "${MODELS[@]}"; do
+  if [ -n "$prev" ]; then
+    ollama stop "$prev" >/dev/null 2>&1 || true
+    echo "Unloaded $prev so the next model loads into clean VRAM."
+  fi
+  run_tests "$m"
+  prev="$m"
+done
+
+# O6 keep_alive: set it on the last-tested model, then leave it loaded for the idle check.
+say "O6 keep_alive"
+curl -sS "$OLLAMA/api/generate" -d "{\"model\":\"$prev\",\"prompt\":\"hi\",\"stream\":false,\"keep_alive\":\"30m\"}" >/dev/null \
+  && echo "keep_alive=30m set on $prev"
+echo "After ~2 min of idle, run: ollama ps   ($prev should STILL be listed, not unloaded)"
+
+# O6 firewall instructions — model-agnostic, printed once.
 say "O6 firewall (ufw) — allow ONLY the Pi"
 echo "Prereq (Ubuntu): Ollama must listen on the LAN interface, not just 127.0.0.1 —"
 echo "  you've already exposed it (ai.siggy-lab.org works), so this is satisfied; on a rebuild set OLLAMA_HOST=0.0.0.0."
@@ -193,9 +269,3 @@ echo "  sudo ufw deny 11434"
 echo "  sudo ufw status verbose"
 echo "Then test from the Pi:       curl -sS -m 5 http://ai.siggy-lab.org:11434/api/tags   (should succeed)"
 echo "Then test from ANOTHER host: curl -sS -m 5 http://ai.siggy-lab.org:11434/api/tags   (should time out/fail)"
-
-say "SUMMARY"
-echo "passed=$PASS failed=$FAIL"
-[ ${#FAILED_IDS[@]} -gt 0 ] && echo "failed_ids: ${FAILED_IDS[*]}"
-} 2>&1 | tee "$LOG"
-commit_results "$MACHINE"
