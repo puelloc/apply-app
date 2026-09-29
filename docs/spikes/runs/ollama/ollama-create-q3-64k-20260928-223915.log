@@ -1,0 +1,9 @@
+Creating qwen38-q3-64k:latest from qwen38-q3-32k:latest (num_ctx 65536):
+[?2026h[?25l[1Ggathering model components [K
+using existing layer sha256:9af7a683a7daa0b63feae6849b1fc61666531b80959f12d9cb6a7651ead2c273 [K
+using existing layer sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4 [K
+using existing layer sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12 [K
+creating new layer sha256:abfe2eb6c041bd7804fc3e4539cabf40b423f47c173dbc9dde4a3220dcff54f4 [K
+writing manifest [K
+success [K[?25h[?2026l
+CREATED: qwen38-q3-64k:latest
