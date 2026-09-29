@@ -1,0 +1,101 @@
+
+########## O1 version and model ##########
+ollama version is 0.33.3
+RESULT: O1  PASS
+  Model
+    architecture        qwen35     
+    parameters          27.3B      
+    context length      262144     
+    embedding length    5120       
+    quantization        Q4_K_M     
+    requires            0.32.12    
+
+  Capabilities
+    completion    
+    vision        
+    tools         
+    thinking      
+
+  Projector
+    architecture        clip       
+    parameters          460.73M    
+    embedding length    1152       
+    dimensions          5120       
+
+  Parameters
+    draft_num_predict    4        
+    min_p                0        
+    num_ctx              64440    
+    presence_penalty     0        
+    repeat_penalty       1        
+    temperature          1        
+    top_k                20       
+    top_p                0.95     
+
+  License
+    Apache License               
+    Version 2.0, January 2004    
+    ...                          
+
+
+########## O2 num_ctx 65536 ##########
+response ok: pong
+RESULT: O2a_generate PASS
+--- ollama ps (model should be loaded, note SIZE + PROCESSOR) ---
+NAME                      ID              SIZE     PROCESSOR          CONTEXT    UNTIL              
+qwen3.8-27b-64k:latest    619eed0a46db    19 GB    24%/76% CPU/GPU    65536      4 minutes from now    
+--- rocm-smi (note VRAM used/free; AMD RX 7900 XT, 20 GB) ---
+
+
+========================================= ROCm System Management Interface =========================================
+=================================================== Concise Info ===================================================
+Device  Node  IDs              Temp    Power  Partitions          SCLK   MCLK     Fan    Perf  PwrCap  VRAM%  GPU%  
+[3m              (DID,     GUID)  (Edge)  (Avg)  (Mem, Compute, ID)                                                    [0m
+====================================================================================================================
+0       1     0x744c,   61172  40.0°C  20.0W  N/A, N/A, 0         34Mhz  1249Mhz  29.8%  auto  0.0W    93%    0%    
+====================================================================================================================
+=============================================== End of ROCm SMI Log ================================================
+--- rocm-smi vram detail ---
+
+
+============================ ROCm System Management Interface ============================
+================================== Memory Usage (Bytes) ==================================
+GPU[0]		: VRAM Total Memory (B): 21458059264
+GPU[0]		: VRAM Total Used Memory (B): 20077932544
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+CHECK: does rocm-smi show the model in VRAM with headroom (~3 GB free)? Paste the lines above.
+
+########## O3 60k-token prompt_eval_count ##########
+input_chars=250000 est_tokens~62500
+prompt_eval_count=42220 eval_count=299
+PASS
+
+########## O4 JSON schema + tool calls (50 each) ##########
+schema_valid=50/50  failures=0
+tool_valid=50/50  failures=0
+PASS
+
+########## O5 think on/off ##########
+think:true: eval_count=31 eval_duration_ns=2161459000 tok/s=14.3 wall=9.06s
+   response: 'Mars.'
+think:false: eval_count=7 eval_duration_ns=401412000 tok/s=17.4 wall=0.92s
+   response: 'Mars is a planet.'
+CHECK: does think:false change eval_count/timing? Record which knob is honored.
+
+########## O6 keep_alive ##########
+keep_alive set to 30m
+After ~2 min of idle, run: ollama ps   (model should STILL be listed, not unloaded)
+
+########## O6 firewall (ufw) — allow ONLY the Pi ##########
+Prereq (Ubuntu): Ollama must listen on the LAN interface, not just 127.0.0.1 —
+  you've already exposed it (ai.siggy-lab.org works), so this is satisfied; on a rebuild set OLLAMA_HOST=0.0.0.0.
+Run these, replacing <PI_LAN_IP> with the Pi's LAN IP:
+  sudo ufw allow from <PI_LAN_IP> to any port 11434 proto tcp
+  sudo ufw deny 11434
+  sudo ufw status verbose
+Then test from the Pi:       curl -sS -m 5 http://ai.siggy-lab.org:11434/api/tags   (should succeed)
+Then test from ANOTHER host: curl -sS -m 5 http://ai.siggy-lab.org:11434/api/tags   (should time out/fail)
+
+########## SUMMARY ##########
+passed=2 failed=0
