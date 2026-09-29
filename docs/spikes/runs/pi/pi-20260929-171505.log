@@ -1,0 +1,137 @@
+
+########## P1 hardware ##########
+uname -m:
+aarch64
+docker compose version:
+Docker Compose version v5.4.0
+vcgencmd get_throttled (want 0x0 at idle):
+throttled=0x0
+RESULT: P1_arch PASS
+RESULT: P1_throttled PASS
+
+########## P2 KasmVNC arm64 image ##########
+Discovering arm64 manifests for kasmweb/chromium:
+            "architecture": "amd64",
+            "architecture": "arm64",
+            "os": "linux"
+            "os": "linux",
+Running headed Chromium (Xvfb + KasmVNC) on host port 6901:
+d4c65d8202153c183e6deff6b5762ca757618f8f56e0b3c92e0e87750c3e0682
+--- container logs (tail) ---
++ eval set -- ' --'
+++ set -- --
++ [[ -- != -- ]]
++ shift
++ FORCE=
++ '[' -n '' ']'
++ '[' -n '' ']'
++ kasm_startup
++ '[' -n '' ']'
++ '[' -z '' ']'
++ URL=
++ '[' -z '' ']'
++ echo 'Entering process startup loop'
++ set +x
+filter is not configured
+RESULT: P2_start PASS
+Connect in a browser to https://<PI_LAN_IP>:6901 (user: kasm_user, password: spikepw).
+Pass only when you can open it THROUGH NPM with WebSockets (jobs-review.<domain>) — that is D3 later.
+
+########## P3 RAM per tab (mock page, NOT a real ATS) ##########
+Mock form served at http://<PI_LAN_IP>:8123/form.html
+In the KasmVNC session from P2, open 1 tab, then 3, then 5 tabs to that URL.
+After EACH count, run the two lines below and note the numbers:
+  docker stats kasmvnc-spike --no-stream
+  free -h
+PASS if total used RAM stays under ~6GB at 5 tabs with no swap thrash (si/so ~0 in 'free -h' / vmstat 1).
+
+########## P4 browser-use headed vs headless (needs Ollama reachable + the venv from workflow-use.sh) ##########
+curl: (7) Failed to connect to ai.siggy-lab.org port 11434 after 61 ms: Couldn't connect to server
+RESULT: P4_ollama FAIL
+(Ollama at ai.siggy-lab.org; O6 firewall must already allow the Pi.)
+Running the P4 driver (headless vs headed) inside the spike venv:
+ERROR    [BrowserSession] [LocalBrowserWatchdog] Exception in on_BrowserLaunchEvent: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 160, in _launch_browser
+    cdp_url = await self._wait_for_cdp_url(debug_port, process=process)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 428, in _wait_for_cdp_url
+    raise RuntimeError(
+RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#0aba)]    ❌ Failed (23.54s): RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#0aba)]    ❌ CDP connected but failed to re-create CDP session after error "RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux)." in on_BrowserLaunchEvent(BrowserLaunchEvent#0aba): due to AssertionError: Root CDP client not initialized
+
+ERROR    [bubus] ❌ EventBus_eca4e877🟢(⏳ 0 | ▶️ 1 | ✅ 1 ➡️ 31 👂) Error in event handler browser_use.browser.watchdog_base.LocalBrowserWatchdog.on_BrowserLaunchEvent(?▶ BrowserLaunchEvent#0aba ✅) -> 
+[91mRuntimeError(Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).)[0m
+RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+WARNING  [bubus] ⚠️ EventBus_eca4e877🟢(⏳ 0 | ▶️ 1 | ✅ 1 ➡️ 31 👂) handler browser_use.browser.watchdog_base.BrowserSession.on_BrowserStartEvent() has been running for >15s on event. Possible slow processing or deadlock.
+(handler could be trying to await its own result or could be blocked by another async task).
+browser_use.browser.watchdog_base.BrowserSession.on_BrowserStartEvent(?▶ BrowserStartEvent#44f9 🏃)
+WARNING  [BrowserSession] Local browser failed to start. Cloud browsers require no local install and work out of the box.
+         Try: Browser(use_cloud=True)  |  Get an API key: https://cloud.browser-use.com?utm_source=oss&utm_medium=browser_launch_failure
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#44f9)]           ❌ Failed (25.66s): RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#44f9)]           ❌ CDP connected but failed to re-create CDP session after error "RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux)." in on_BrowserStartEvent(BrowserStartEvent#44f9): due to AssertionError: Root CDP client not initialized
+
+ERROR    [bubus] ❌ EventBus_eca4e877🟢(⏳ 1 | ▶️ 0 | ✅ 2 ➡️ 31 👂) Error in event handler browser_use.browser.watchdog_base.BrowserSession.on_BrowserStartEvent(?▶ BrowserStartEvent#44f9 ✅) -> 
+[91mRuntimeError(Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).)[0m
+RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+INFO     [BrowserSession] 📢 on_BrowserStopEvent - Calling reset() (force=False, keep_alive=None)
+INFO     [BrowserSession] ✅ Browser session reset complete
+INFO     [BrowserSession] ✅ Browser session reset complete
+ERROR    [BrowserSession] [LocalBrowserWatchdog] Exception in on_BrowserLaunchEvent: process PID not found (pid=2105679)
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 157, in _launch_browser
+    process = psutil.Process(subprocess.pid)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 314, in __init__
+    self._init(pid)
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/psutil/__init__.py", line 360, in _init
+    raise NoSuchProcess(pid, msg=msg) from None
+psutil.NoSuchProcess: process PID not found (pid=2105679)
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#937e)]    ❌ Failed (0.08s): NoSuchProcess: process PID not found (pid=2105679)
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#937e)]    ❌ CDP connected but failed to re-create CDP session after error "NoSuchProcess: process PID not found (pid=2105679)" in on_BrowserLaunchEvent(BrowserLaunchEvent#937e): due to AssertionError: Root CDP client not initialized
+
+WARNING  [BrowserSession] Local browser failed to start. Cloud browsers require no local install and work out of the box.
+         Try: Browser(use_cloud=True)  |  Get an API key: https://cloud.browser-use.com?utm_source=oss&utm_medium=browser_launch_failure
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#e59d)]           ❌ Failed (0.14s): NoSuchProcess: process PID not found (pid=2105679)
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#e59d)]           ❌ CDP connected but failed to re-create CDP session after error "NoSuchProcess: process PID not found (pid=2105679)" in on_BrowserStartEvent(BrowserStartEvent#e59d): due to AssertionError: Root CDP client not initialized
+
+INFO     [BrowserSession] 📢 on_BrowserStopEvent - Calling reset() (force=False, keep_alive=None)
+INFO     [BrowserSession] ✅ Browser session reset complete
+INFO     [BrowserSession] ✅ Browser session reset complete
+P4 browser-use fill — model=qwen38-q3-64k:latest host=http://ai.siggy-lab.org:11434 form=http://127.0.0.1:8124/mock-greenhouse.html
+fixture=/home/cris/Projects/apply-app/scripts/spikes/fixtures/mock-greenhouse.html (exists=True)
+
+=== running headless (DISPLAY=:99) ===
+  headless: status=ERROR: RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux). wall=25.9s ram_delta=28208KB throttled=throttled=0x0
+
+=== running headed (DISPLAY=:99) ===
+  headed: status=ERROR: NoSuchProcess: process PID not found (pid=2105679) wall=0.2s ram_delta=-960KB throttled=throttled=0x0
+
+=== P4 SUMMARY ===
+  headless: ERROR: RuntimeError: Browser process (PID 2105295) exited before CDP became available on port 53811. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux). | 25.9s | 28208KB | throttled=0x0
+  headed: ERROR: NoSuchProcess: process PID not found (pid=2105679) | 0.2s | -960KB | throttled=0x0
+CHECK: headed may fail without a running X server (expected on a headless Pi). Record headless vs headed.
+
+########## P5 bot-detection baseline (DO NOT RUN WITHOUT APPROVAL) ##########
+P5 visits a public bot-detection page, which is a third-party site (rule 8).
+Pause here and tell me: which bot-detection URL you approve (or 'none yet').
+I will then pin the exact URL + command before you run it.
+
+########## SUMMARY ##########
+passed=3 failed=1
+failed_ids: P4_ollama
