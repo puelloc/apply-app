@@ -1,0 +1,28 @@
+# --- secrets (rule 7: never commit real credentials; use Docker secrets + placeholders) ---
+/secrets/*
+!/secrets/.gitkeep
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# --- env / local config ---
+.env
+.env.*
+!.env.example
+
+# --- data / databases (never commit) ---
+*.db
+*.db-wal
+*.db-shm
+
+# --- node (future generated UI) ---
+node_modules/
+dist/
+
+# --- OS ---
+.DS_Store
