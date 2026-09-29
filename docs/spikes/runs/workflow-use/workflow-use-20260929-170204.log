@@ -1,0 +1,129 @@
+
+########## W0 setup + version pinning ##########
+Installing browser-use and workflow-use (pin via BROWSER_USE_VER/WORKFLOW_USE_VER)
+Requirement already satisfied: rpds-py>=0.25.0 in ./venv/lib/python3.11/site-packages (from jsonschema>=4.20.0->mcp==2.1.1->browser-use) (2026.6.3)
+Requirement already satisfied: mdurl~=0.1 in ./venv/lib/python3.11/site-packages (from markdown-it-py>=2.2.0->rich==14.3.3->browser-use) (0.1.2)
+Requirement already satisfied: oauthlib>=3.0.0 in ./venv/lib/python3.11/site-packages (from requests-oauthlib>=0.7.0->google-auth-oauthlib==1.2.4->browser-use) (4.0.0)
+Requirement already satisfied: shellingham>=1.3.0 in ./venv/lib/python3.11/site-packages (from typer>=0.15.3->workflow-use) (1.5.4)
+Requirement already satisfied: more-itertools in ./venv/lib/python3.11/site-packages (from jaraco.classes->keyring>=25.6.0->py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == "client"->fastmcp-slim[client,server]==4.0.10->fastmcp>=2.3.4->workflow-use) (11.1.0)
+Requirement already satisfied: backports.tarfile in ./venv/lib/python3.11/site-packages (from jaraco.context->keyring>=25.6.0->py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == "client"->fastmcp-slim[client,server]==4.0.10->fastmcp>=2.3.4->workflow-use) (1.2.0)
+W1 NOTE: workflow-use package installed (pip name confirmed).
+Lockfile written to ~/apply-spikes/spikes-lock.txt (paste it back so I can pin the vendored commits).
+
+########## W-introspection (the real API) ##########
+IMPORT OK: workflow_use -> version=?
+  public (5): ['Workflow', 'WorkflowDefinitionSchema', 'controller', 'schema', 'workflow']
+IMPORT FAIL: workflowuse -> ModuleNotFoundError: No module named 'workflowuse'
+IMPORT FAIL: workflow -> ModuleNotFoundError: No module named 'workflow'
+IMPORT OK: workflow_use.recorder -> version=?
+  public (0): []
+IMPORT FAIL: workflow_use.replay -> ModuleNotFoundError: No module named 'workflow_use.replay'
+browser_use version: ?
+
+########## W-fixture: mock Greenhouse form + placeholder profile + canary values ##########
+Fixture files written under ~/apply-spikes/fixture/
+
+########## W1: record with placeholders, then grep for leaks ##########
+Serve the fixture:
+  cd ~/apply-spikes/fixture && python3 -m http.server 8124
+W1 record step is finalized from the W-introspection output (the exact recorder call).
+Once a recording file exists (path from the recorder), run this leak check:
+Leak checker written to ~/apply-spikes/fixture/check-leaks.sh
+
+########## W1-W3 driver (record/replay/break against the mock form) ##########
+INFO     [utils] 📦 Downloading uBlock Origin Lite extension...
+INFO     [utils] 📂 Extracting uBlock Origin Lite extension...
+INFO     [utils] 📦 Downloading I still don't care about cookies extension...
+INFO     [utils] 📂 Extracting I still don't care about cookies extension...
+INFO     [utils] 📦 Downloading Force Background Tab extension...
+INFO     [utils] 📂 Extracting Force Background Tab extension...
+INFO     [utils] [BrowserProfile] ✅ Cookie extension: nature.com, qatarairways.com pre-populated in storage
+WARNING  [bubus] ⚠️ EventBus_eabf083d🟢(⏳ 0 | ▶️ 2 | ✅ 0 ➡️ 31 👂) handler browser_use.browser.watchdog_base.BrowserSession.on_BrowserStartEvent() has been running for >15s on event. Possible slow processing or deadlock.
+(handler could be trying to await its own result or could be blocked by another async task).
+browser_use.browser.watchdog_base.BrowserSession.on_BrowserStartEvent(?▶ BrowserStartEvent#a98e 🏃)
+WARNING  [bubus] ⚠️ EventBus_eabf083d🟢(⏳ 0 | ▶️ 2 | ✅ 0 ➡️ 31 👂) handler browser_use.browser.watchdog_base.LocalBrowserWatchdog.on_BrowserLaunchEvent() has been running for >15s on event. Possible slow processing or deadlock.
+(handler could be trying to await its own result or could be blocked by another async task).
+browser_use.browser.watchdog_base.LocalBrowserWatchdog.on_BrowserLaunchEvent(?▶ BrowserLaunchEvent#8ef5 🏃)
+ERROR    [BrowserSession] [LocalBrowserWatchdog] Exception in on_BrowserLaunchEvent: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 160, in _launch_browser
+    cdp_url = await self._wait_for_cdp_url(debug_port, process=process)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 428, in _wait_for_cdp_url
+    raise RuntimeError(
+RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#8ef5)]    ❌ Failed (35.59s): RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#8ef5)]    ❌ CDP connected but failed to re-create CDP session after error "RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux)." in on_BrowserLaunchEvent(BrowserLaunchEvent#8ef5): due to AssertionError: Root CDP client not initialized
+
+ERROR    [bubus] ❌ EventBus_eabf083d🟢(⏳ 0 | ▶️ 1 | ✅ 1 ➡️ 31 👂) Error in event handler browser_use.browser.watchdog_base.LocalBrowserWatchdog.on_BrowserLaunchEvent(?▶ BrowserLaunchEvent#8ef5 ✅) -> 
+[91mRuntimeError(Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).)[0m
+RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+WARNING  [BrowserSession] Local browser failed to start. Cloud browsers require no local install and work out of the box.
+         Try: Browser(use_cloud=True)  |  Get an API key: https://cloud.browser-use.com?utm_source=oss&utm_medium=browser_launch_failure
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#a98e)]           ❌ Failed (36.20s): RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#a98e)]           ❌ CDP connected but failed to re-create CDP session after error "RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux)." in on_BrowserStartEvent(BrowserStartEvent#a98e): due to AssertionError: Root CDP client not initialized
+
+ERROR    [bubus] ❌ EventBus_eabf083d🟢(⏳ 1 | ▶️ 0 | ✅ 2 ➡️ 31 👂) Error in event handler browser_use.browser.watchdog_base.BrowserSession.on_BrowserStartEvent(?▶ BrowserStartEvent#a98e ✅) -> 
+[91mRuntimeError(Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).)[0m
+RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+INFO     [BrowserSession] 📢 on_BrowserStopEvent - Calling reset() (force=False, keep_alive=None)
+INFO     [BrowserSession] ✅ Browser session reset complete
+INFO     [BrowserSession] ✅ Browser session reset complete
+ERROR    [BrowserSession] [LocalBrowserWatchdog] Exception in on_BrowserLaunchEvent: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+Traceback (most recent call last):
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 56, in on_BrowserLaunchEvent
+    process, cdp_url = await self._launch_browser()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/observability.py", line 73, in async_wrapper
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 160, in _launch_browser
+    cdp_url = await self._wait_for_cdp_url(debug_port, process=process)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cris/apply-spikes/venv/lib/python3.11/site-packages/browser_use/browser/watchdogs/local_browser_watchdog.py", line 428, in _wait_for_cdp_url
+    raise RuntimeError(
+RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#d13f)]    ❌ Failed (0.41s): RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [LocalBrowserWatchdog.on_BrowserLaunchEvent(#d13f)]    ❌ CDP connected but failed to re-create CDP session after error "RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux)." in on_BrowserLaunchEvent(BrowserLaunchEvent#d13f): due to AssertionError: Root CDP client not initialized
+
+ERROR    [bubus] ❌ EventBus_b24b2a2b🟢(⏳ 0 | ▶️ 1 | ✅ 1 ➡️ 31 👂) Error in event handler browser_use.browser.watchdog_base.LocalBrowserWatchdog.on_BrowserLaunchEvent(?▶ BrowserLaunchEvent#d13f ✅) -> 
+[91mRuntimeError(Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).)[0m
+RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+WARNING  [BrowserSession] Local browser failed to start. Cloud browsers require no local install and work out of the box.
+         Try: Browser(use_cloud=True)  |  Get an API key: https://cloud.browser-use.com?utm_source=oss&utm_medium=browser_launch_failure
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#8175)]           ❌ Failed (0.45s): RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+ERROR    [BrowserSession] 🚌 [BrowserSession.on_BrowserStartEvent(#8175)]           ❌ CDP connected but failed to re-create CDP session after error "RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux)." in on_BrowserStartEvent(BrowserStartEvent#8175): due to AssertionError: Root CDP client not initialized
+
+ERROR    [bubus] ❌ EventBus_b24b2a2b🟢(⏳ 1 | ▶️ 0 | ✅ 2 ➡️ 31 👂) Error in event handler browser_use.browser.watchdog_base.BrowserSession.on_BrowserStartEvent(?▶ BrowserStartEvent#8175 ✅) -> 
+[91mRuntimeError(Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).)[0m
+RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+INFO     [BrowserSession] 📢 on_BrowserStopEvent - Calling reset() (force=False, keep_alive=None)
+INFO     [BrowserSession] ✅ Browser session reset complete
+INFO     [BrowserSession] ✅ Browser session reset complete
+W1-W3 workflow-use — model=qwen38-q3-64k:latest host=http://ai.siggy-lab.org:11434 form=http://127.0.0.1:8124/mock-greenhouse.html
+
+[W1] workflow file written to /home/cris/apply-spikes/workflows/mock-greenhouse.workflow.json
+[W1] placeholders present: {first_name}=False, {email}=False
+[W1] canary leaks found in file: NONE
+W1 RESULT: PASS (no real values in workflow file)
+
+[W2] replaying with canary profile (schema has no submit step)...
+W2 RESULT: ERROR RuntimeError: Browser process (PID 2095637) exited before CDP became available on port 43041. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+[W3] re-running with a broken selector (first_name target_text -> NONEXISTENT_FIELD_XYZ_12345)...
+W3 RESULT: ERROR RuntimeError: Browser process (PID 2096369) exited before CDP became available on port 45661. This usually means Chrome failed to start — check that it is properly installed and all required system dependencies are present (e.g. --no-sandbox may be needed in Docker/headless environments, or a virtual display such as Xvfb on headless Linux).
+
+=== W SUMMARY === see W1/W2/W3 RESULT lines above ===
+
+########## SUMMARY ##########
+W1-W3 driver output is above. Lockfile: ~/apply-spikes/spikes-lock.txt
