@@ -266,6 +266,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | 2026-09-28 | **Spike scripts auto-log + auto-commit/push.** Each spike script tees its output to `~/apply-spikes/logs/<machine>-<timestamp>.log` and at the end commits it to `docs/spikes/runs/<machine>/` in this repo and pushes. Push requires git credentials on that machine; on failure the log is saved and the commit is left locally. | The user asked for results to be logged to a file and git-committed/pushed so the agent can read them from the repo instead of copy-paste. |
 | 2026-09-28 | **Ollama model tag + version recorded.** Tag = `qwen3.8-27b-64k:latest`; `ollama` 0.33.3 (model requires ≥0.32.12); `ollama show` reports architecture `qwen35`, 27.3B, Q4_K_M, Modelfile `num_ctx` 64440. | O1 resolved the `<QWEN38_TAG>` placeholder (Open question #3). |
 | 2026-09-28 | **O2 headroom assumption is wrong (rule 10).** The Q4_K_M build is 19 GB (not ~17 GB), and at 64k context it does not fit in the 20 GB VRAM: 93% VRAM used, ~24% of layers offloaded to CPU. Fallbacks to choose from: (a) smaller quant (Q4_0 / Q3_K_M) so it fits on-GPU, (b) lower `num_ctx` (e.g. 32k), (c) accept the CPU offload (works, ~17 tok/s generation). | Measured by O2 (`rocm-smi` + `ollama ps`). Disproves the plan's "VRAM fits with headroom" clause, so O2 is marked fail and a fallback must be chosen before L1 and long-form runs. |
+| 2026-09-28 | **CPU-offload cost + local models recorded.** Offloaded Q4_K_M 64k generates at 17.4 tok/s (think off); a fully-on-GPU 27B Q4 on the 7900 XT is ~30–35 tok/s, so offload ≈ 2× slower on decode and ~2–3× on prefill. The user already has `qwen38-q3-32k:latest` and `batiai/qwen3.8-27b:q3` (13 GB Q3, 32k) locally, which would fit fully on-GPU. | Quantifies Open question #6: three real options — keep Q4_K_M 64k + offload, use the local Q3 32k, or build a Q3_K_M at 64k. |
 
 ## Verification log
 
@@ -318,7 +319,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 3. ~~Exact Ollama tag for Qwen3.8-27B~~ **Resolved:** `qwen3.8-27b-64k:latest` (O1; `ollama` 0.33.3, architecture `qwen35`, Q4_K_M).
 4. ~~KasmVNC arm64 image tag~~ **Resolved:** `kasmweb/chromium:1.16.1` is multi-arch (arm64 manifest present) and starts on the Pi (P2 pass).
 5. **workflow-use feasibility.** W1–W3 verify record/replay with placeholders. If it fails, the plan already names the fallback (build a thin recorder). No decision until W1–W3 evidence is in.
-6. **VRAM fallback (from O2 fail).** Choose: smaller quant vs lower `num_ctx` vs accept CPU offload. Blocks L1 and long-form runs until decided.
+6. **VRAM fallback (from O2 fail).** Choose: (a) keep Q4_K_M 64k + ~24% CPU offload (~2x slower decode, ~2–3x prefill), (b) use the already-local Q3 32k (`qwen38-q3-32k:latest`, 13 GB, full GPU but 32k context), or (c) build a Q3_K_M at 64k (~13 GB, full GPU, 64k). L1 eval decides Q3 vs Q4 quality.
 
 ## Changelog
 
@@ -333,3 +334,4 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **Spike scripts now auto-log + auto-commit/push** their results to `docs/spikes/runs/<machine>/`.
 - **O1–O5 results.** O1/O3/O4/O5 pass; O2 fails its headroom clause. Ollama 0.33.3, model `qwen3.8-27b-64k:latest` (architecture `qwen35`, Q4_K_M).
 - **VRAM assumption corrected.** Q4_K_M is 19 GB and 64k context does not fit in 20 GB VRAM (93% used, ~24% CPU offload) — fallbacks proposed in Decision log / Open question #6.
+- **CPU-offload cost quantified + local Q3 models noted.** 17.4 tok/s (think off) with offload vs ~30–35 full-GPU; user has 13 GB Q3 32k models locally. Refined the fallback to three concrete options.
