@@ -33,14 +33,15 @@ for _ in $(seq 1 30); do
 done
 
 OPS_TOKEN=$(cat secrets/worker_api_token.txt)
-docker compose exec -T api python3 -c "
+JOB_ID=$(docker compose exec -T api python3 -c "
 import urllib.request, json
 body = json.dumps({'company_name':'Acme','title':'Engineer','listing_url':'http://mock-ats:8000/greenhouse.html','application_url':'http://mock-ats:8000/greenhouse.html','ats':'greenhouse'}).encode()
 req = urllib.request.Request('http://127.0.0.1:8000/jobs', data=body, headers={'Authorization':'Bearer $OPS_TOKEN','Content-Type':'application/json'}, method='POST')
-print('seeded job:', urllib.request.urlopen(req).read().decode())
-"
+print(json.loads(urllib.request.urlopen(req).read())['id'])
+")
+echo "seeded job id: $JOB_ID"
 
 echo
 echo "Watch the worker: docker logs -f $(docker compose ps -q worker)"
 echo "Check step events (after the run):"
-echo "  docker compose exec api python3 -c \"import urllib.request,json; r=urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/jobs/1/step-events', headers={'Authorization':'Bearer $OPS_TOKEN'})); print(json.dumps(json.load(r), indent=2))\""
+echo "  docker compose exec api python3 -c \"import urllib.request,json; r=urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/jobs/$JOB_ID/step-events', headers={'Authorization':'Bearer $OPS_TOKEN'})); print(json.dumps(json.load(r), indent=2))\""
