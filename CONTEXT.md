@@ -116,4 +116,4 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 
 1. Manual: P3 (RAM per tab in KasmVNC), P5 (gated). O6 raw-port lock skipped (trusted LAN).
 2. **Steps 1–2 done.** Step 1: networks + egress proxy (N1/N2/N3/N6 pass; N4/N5 → step 5, D → steps 3/5/9). Step 2: mock ATS fixtures + canary harness + snapshot scaffold.
-3. **Build step 3 (in progress)**: API foundation done (error taxonomy, redacted logging, db, `/health`). Next: DB models + Alembic → jobs/queue/leases endpoints → scoped auth → `doctor`.
+3. **Build step 3 (in progress)**: foundation + schema done (error taxonomy, redacted logging, WAL db, `/health`, Job/StepEvent/Lease/Account models + Alembic migration). Next: jobs/queue/leases endpoints → scoped auth → `doctor`.
