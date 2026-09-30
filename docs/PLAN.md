@@ -313,7 +313,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | E3 | untested | | |
 | E4 | untested | | |
 | S1 | untested | | |
-| S2 | untested | | |
+| S2 | pass | 2026-09-30 | Docker (`s2-submit-guard.sh`): guard injected per-context; click submit, Enter, JS `form.submit()`, `requestSubmit()` all blocked → `blocked: 4` (`submit-event, enter-key, submit, requestSubmit`), `POSTs: 0` (zero requests reached the mock server). |
 | S3 | untested | | |
 | S4 | untested | | |
 | S5 | untested | | |
@@ -379,3 +379,4 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **`doctor` + step 3 complete.** `GET /doctor` (`diagnose` scope) runs named checks: DB migrations (current vs head), stuck/expired leases, and Ollama reachability. Vault/browser/proxy/host/IMAP checks are deferred to steps 4–7. Alembic now runs at container startup (`alembic upgrade head` in the CMD). 26 tests pass.
 - **Step 4 core: vault + two-phase + reconcile.** `vault.py` — Fernet encryption, PBKDF2 key derivation, passphrase-check ciphertext, seal/unseal with the key held only in memory; encrypted secrets + salt are the only on-disk state (fsynced). `services/accounts.py` — `begin` (pending + password fsynced to the vault before commit), `confirm`, and `reconcile` (signup / login_or_reset / login). 32 tests pass. Worker-side instantiation + API `status`/`seal`/`unseal` land in step 5 (the vault key lives in worker memory; no endpoint ever returns a password).
 - **Step 5a: page-level submit guard.** `services/browser/guard.js` (injected as a Playwright init script; blocks submit events, Enter-key submits, and `form.submit()`/`requestSubmit()`, recording each block on `window.__submitGuard`) + `services/browser/s2_submit_guard.py` (S2 test: 4 submit attempts → `blocked: 4`, `POSTs: 0`). Both syntax-checked; S2 runs on the Pi (needs Playwright + Chromium).
+- **S2 pass (live).** `s2-submit-guard.sh` on the Pi in Docker: `blocked: 4` (`submit-event, enter-key, submit, requestSubmit`), `POSTs: 0`. Guard verified against the mock ATS. (Two test-only fixes en route: run in Docker for Chromium's system deps, fill required fields so the submit event actually fires, and call `form.submit()` via the prototype because the button `id="submit"` shadows the method.)
