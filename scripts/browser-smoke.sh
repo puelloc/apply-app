@@ -14,13 +14,27 @@ docker build -q -t "$IMAGE" "$SCRIPT_DIR/services/browser" || { echo "build fail
 docker rm -f "$CT" >/dev/null 2>&1 || true
 docker run -d --name "$CT" -p 127.0.0.1:9222:9222 -v browser-smoke-profile:/profile "$IMAGE" >/dev/null
 
-sleep 5
-version="$(curl -sS http://127.0.0.1:9222/json/version 2>/dev/null || true)"
-if echo "$version" | grep -q '"Browser"'; then
-  echo "PASS: CDP responds ($(echo "$version" | grep -o '"Browser": *"[^"]*"'))"
+# First launch is slow (profile init + DBus setup), so poll CDP for up to 30s.
+ok=""
+i=0
+while [ "$i" -lt 30 ]; do
+  version="$(curl -sS --max-time 2 http://127.0.0.1:9222/json/version 2>/dev/null || true)"
+  if echo "$version" | grep -q '"Browser"'; then
+    ok="$version"
+    break
+  fi
+  i=$((i + 1))
+  sleep 1
+done
+
+if [ -n "$ok" ]; then
+  echo "PASS: CDP responds ($(echo "$ok" | grep -o '"Browser": *"[^"]*"'))"
 else
-  echo "FAIL: CDP did not respond"
-  docker logs "$CT" 2>&1 | tail -20
+  echo "FAIL: CDP did not respond within 30s"
+  echo "--- from inside the container ---"
+  docker exec "$CT" python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9222/json/version', timeout=3).read().decode()[:200])" 2>&1 || true
+  echo "--- container logs ---"
+  docker logs "$CT" 2>&1 | tail -30
   exit 1
 fi
 

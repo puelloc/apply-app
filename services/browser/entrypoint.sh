@@ -13,7 +13,7 @@ with sync_playwright() as p:
 EOF
 )
 
-exec "$CHROME" \
+exec dbus-run-session -- "$CHROME" \
   --remote-debugging-address=0.0.0.0 \
   --remote-debugging-port=9222 \
   --no-sandbox \
