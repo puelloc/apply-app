@@ -94,8 +94,8 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
         up_writer.write(_rewrite_request(head))
         await up_writer.drain()
         await _forward_response(reader, writer, up_reader, up_writer)
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"cdp-relay error: {type(exc).__name__}: {exc}", flush=True)
     finally:
         try:
             writer.close()

@@ -26,6 +26,9 @@ if [ -n "${BROWSER_PROXY_BYPASS:-}" ]; then
   BYPASS_ARGS="--proxy-bypass-list=$BROWSER_PROXY_BYPASS"
 fi
 
+# Remove a stale profile lock left by a force-killed previous run (single-instance, so safe).
+rm -f /profile/SingletonLock /profile/SingletonCookie /profile/SingletonSocket 2>/dev/null || true
+
 dbus-run-session -- "$CHROME" \
   --remote-debugging-port=9221 \
   --remote-allow-origins=* \
