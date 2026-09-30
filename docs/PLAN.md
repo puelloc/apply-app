@@ -312,7 +312,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | S3 | untested | | |
 | S4 | untested | | |
 | S5 | untested | | |
-| W1 | untested | | |
+| W1 | pass | 2026-09-29 | Driver (Docker, on SSD) built the parameterized workflow; `placeholders present: first_name=True, email=True`; `canary leaks found in file: NONE`. The `.workflow.json` holds `{context_var}` placeholders, no real values. |
 | W2 | untested | | |
 | W3 | untested | | |
 | R1 | untested | | |
@@ -354,3 +354,4 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **Spike moved to Docker.** Added a spike `Dockerfile` (pinned stack + `playwright install --with-deps chromium`) and `run-spike.sh`; the bare-host venv/browser/deps are removed via `cleanup.sh`.
 - **Pi→Ollama connectivity confirmed.** `P4_ollama` now passes (`https://ai.siggy-lab.org` reachable from the Pi), confirming the endpoint correction. P4's browser-use fill still fails on the bare host (missing Chromium libs) — the Docker runner supersedes it.
 - **Docker data-root on SD, not SSD.** Pi boots from micro SD (`mmcblk0p2`); the SSD (`/dev/sda1`) is a separate OMV data disk but Docker runs on the SD. Move Docker's `data-root` to the SSD (via `/etc/docker/daemon.json`) before step 1.
+- **W1 pass; W2/W3 driver bug fixed.** W1 verified (placeholders only, no canary leaks). W2/W3 first hit a driver bug — `serve_form()` was never called, so the mock form wasn't served (browser got connection-refused) — fixed.
