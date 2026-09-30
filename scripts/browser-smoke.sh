@@ -12,7 +12,9 @@ echo "Building $IMAGE ..."
 docker build -q -t "$IMAGE" "$SCRIPT_DIR/services/browser" || { echo "build failed"; exit 1; }
 
 docker rm -f "$CT" >/dev/null 2>&1 || true
-docker run -d --name "$CT" -p 127.0.0.1:9222:9222 -v browser-smoke-profile:/profile "$IMAGE" >/dev/null
+# tmpfs profile = fresh each run (a reused named volume keeps Chromium's SingletonLock after a
+# force-remove, which makes the next run refuse to start).
+docker run -d --name "$CT" -p 127.0.0.1:9222:9222 --tmpfs /profile "$IMAGE" >/dev/null
 
 # First launch is slow (profile init + DBus setup), so poll CDP for up to 30s.
 ok=""
@@ -38,4 +40,4 @@ else
   exit 1
 fi
 
-echo "Container left running. Remove: docker rm -f $CT && docker volume rm browser-smoke-profile"
+echo "Container left running. Remove: docker rm -f $CT"
