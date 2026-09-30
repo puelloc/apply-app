@@ -21,9 +21,9 @@ printf '%s' "$(cat secrets/worker_api_token)" | sha256sum | awk '{print $1}' > s
 [ -s secrets/imap_user.txt ] || echo "canary@example.invalid" > secrets/imap_user.txt
 [ -s secrets/imap_pass.txt ] || echo "CANARY-imap-pass" > secrets/imap_pass.txt
 
-# 2. Compose up (test profile adds mock-ats).
+# 2. Compose up (test profile adds mock-ats). Exclude `mcp` (its image lands in step 9).
 echo "Starting the stack (test profile) ..."
-docker compose --profile test up -d --build
+docker compose --profile test up -d --build api worker browser egress-proxy mock-ats
 
 # 3. Seed a job pointing at the mock Greenhouse form.
 echo "Waiting for the api ..."
