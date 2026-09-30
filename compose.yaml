@@ -74,17 +74,18 @@ services:
     # The vault key is NOT a file secret: it is supplied at boot and lives only in worker memory
     # (build step 4). It re-seals on every reboot.
 
-  # Headed Chromium under Xvfb + KasmVNC. CDP is reachable ONLY from the worker via a relay
-  # (build step 5). CDP is never published.
+  # Headed Chromium under Xvfb. CDP is reachable ONLY from the worker over the internal browser_net
+  # (that isolation IS the relay); CDP is never published. KasmVNC lands with the review UI (step 8).
   browser:
-    image: ghcr.io/apply-app/browser:dev     # Chromium + Xvfb + KasmVNC; PIN BY DIGEST (step 1)
+    build: ./services/browser
+    image: apply-app/browser:dev
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [browser_net]
     volumes:
       - browser-profile:/profile
       - uploads:/uploads:ro
-    # no ports published here; KasmVNC is fronted over the `proxy` network in step 1.
+    # no ports published here; the worker reaches CDP at browser:9222 on browser_net.
 
   # The browser's ONLY route out. Denies private/link-local/loopback, checks the resolved IP
   # (DNS-rebinding defense), enforces the per-job domain allowlist, and logs all domains.
