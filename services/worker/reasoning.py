@@ -38,11 +38,8 @@ def from_browser_use_step(browser_state: Any, model_output: Any, step_number: in
     dynamic ActionModel, e.g. `{'input_text': {...}}`). `run_id`/`adapter` are added by the caller.
     """
     actions = getattr(model_output, "action", None) or []
-    action = actions[0] if actions else None
-    if action is not None:
-        action_name = next(iter(action.model_dump(exclude_unset=True).keys()), "no-action")
-    else:
-        action_name = "no-action"
+    names = [next(iter(a.model_dump(exclude_unset=True).keys()), "?") for a in actions]
+    action_name = ",".join(names) if names else "no-action"
     return {
         "step": step_number,
         "action": action_name,

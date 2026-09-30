@@ -67,6 +67,12 @@ class TestFromBrowserUse(unittest.TestCase):
         step = from_browser_use_step(_FakeBrowserState(), mo, 1)
         self.assertEqual(step["action"], "no-action")
 
+    def test_multiple_actions_joined(self):
+        mo = _FakeModelOutput()
+        mo.action = [_FakeAction(), _FakeAction()]
+        step = from_browser_use_step(_FakeBrowserState(), mo, 1)
+        self.assertEqual(step["action"], "input_text,input_text")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
