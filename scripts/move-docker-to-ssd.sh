@@ -45,14 +45,12 @@ if [ "$ROOT_DEV" = "$TGT_DEV" ]; then
   exit 1
 fi
 
-NEED_MB="$(du -s --block-size=1M /var/lib/docker 2>/dev/null | awk '{print $1}')"
-HAVE_MB="$(df --output=avail -BM "$TARGET" | tail -1 | tr -dc '0-9')"
+# df-only note (skip `du` on the source: scanning the SD's overlay layers is far too slow to run
+# interactively, and the target free space is what actually matters).
+TGT_FREE="$(df -h --output=avail "$TARGET" | tail -1 | tr -d ' ')"
 echo "Current Docker root: $ROOT_DEV  (/var/lib/docker)"
-echo "Target:              $TGT_DEV  ($TARGET)"
-echo "Docker data ~${NEED_MB:-?} MB | target free ~${HAVE_MB:-?} MB"
-if [ -n "${HAVE_MB:-}" ] && [ -n "${NEED_MB:-}" ] && [ "$HAVE_MB" -lt "$NEED_MB" ]; then
-  echo "ERROR: not enough free space on target"; exit 1
-fi
+echo "Target:              $TGT_DEV  ($TARGET)  free=$TGT_FREE"
+echo "(the SD's docker data is a few GB; the SSD above should have room — 1.72 TiB in your case)"
 
 read -r -p "Stop Docker and rsync /var/lib/docker -> $TARGET ? [y/N] " ans
 case "$ans" in y|Y) ;; *) echo "aborted"; exit 0 ;; esac
