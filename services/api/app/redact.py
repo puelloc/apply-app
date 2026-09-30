@@ -1,11 +1,12 @@
-"""Log redaction: secrets never reach disk.
+"""Log redaction + structured JSON logging.
 
-`redact` is pure (testable); `setup_logging` wires a redacting handler. JSON formatting + correlation
-IDs land in a later increment.
+`redact` is pure (testable). `JsonFormatter` emits one JSON object per line so logs are filterable
+and searchable; callers can attach context via `logging`'s `extra=` (see `_CONTEXT_FIELDS`).
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 
@@ -16,6 +17,9 @@ _PATTERNS = [
      r"\1=[REDACTED]"),
 ]
 
+# Optional fields carried on the LogRecord (via extra={...}) that we surface for filtering/search.
+_CONTEXT_FIELDS = ("correlation_id", "job_id", "run_id", "step", "adapter", "action", "error_code")
+
 
 def redact(text: str) -> str:
     for pattern, replacement in _PATTERNS:
@@ -23,14 +27,26 @@ def redact(text: str) -> str:
     return text
 
 
-class RedactingFormatter(logging.Formatter):
+class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        return redact(super().format(record))
+        payload = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": redact(record.getMessage()),
+        }
+        for field in _CONTEXT_FIELDS:
+            value = getattr(record, field, None)
+            if value is not None:
+                payload[field] = value
+        if record.exc_info:
+            payload["exception"] = redact(self.formatException(record.exc_info))
+        return json.dumps(payload)
 
 
 def setup_logging(level: int = logging.INFO) -> None:
     handler = logging.StreamHandler()
-    handler.setFormatter(RedactingFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(level)

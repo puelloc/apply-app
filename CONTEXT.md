@@ -76,6 +76,8 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 
 ## Conventions established
 
+- **Debuggability is a first-class requirement (user).** Plenty of logging; capture agent/browser-use
+  thinking + the reason behind each action; logs must be filterable, searchable, and viewable via the API.
 - **Small, human-maintainable modules (user requirement).** Keep files/functions small and focused;
   split pure logic (policy/validation) from I/O (proxy/server); unit-test the pure parts; no god-files.
 - **Spikes run in Docker**, not the bare host (matches deployment; avoids host pollution).
