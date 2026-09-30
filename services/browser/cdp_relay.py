@@ -7,7 +7,7 @@ Chrome 136+ binds CDP to 127.0.0.1, rejects non-localhost `Host` headers (HTTP 5
   2. rewrites `127.0.0.1:9221` -> the external address in the response body (so the worker
      reconnects through the relay),
   3. tunnels the CDP WebSocket after the upgrade.
-This is the "CDP relay" from the plan (build step 5).
+Handles Content-Length, chunked, and connection-close response bodies.
 """
 
 import asyncio
@@ -20,7 +20,7 @@ EXTERNAL = os.environ.get("CDP_EXTERNAL_HOST", "browser:9222")
 
 
 async def _read_head(reader: asyncio.StreamReader) -> bytes:
-    return await reader.readuntil(b"\r\n\r\n")
+    return await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=30)
 
 
 def _rewrite_request(head: bytes) -> bytes:
@@ -41,6 +41,28 @@ def _rewrite_request(head: bytes) -> bytes:
 def _rewrite_body(body: bytes) -> bytes:
     body = body.replace(f"ws://{TARGET[0]}:{TARGET[1]}".encode(), f"ws://{EXTERNAL}".encode())
     return body.replace(f"{TARGET[0]}:{TARGET[1]}".encode(), EXTERNAL.encode())
+
+
+async def _read_body(up_reader: asyncio.StreamReader, head_text: str) -> bytes:
+    """Read the response body, handling Content-Length, chunked, and connection-close."""
+    m = re.search(r"(?i)content-length:\s*(\d+)", head_text)
+    if m:
+        try:
+            return await up_reader.readexactly(int(m.group(1)))
+        except asyncio.IncompleteReadError as e:
+            return e.partial
+    if re.search(r"(?i)transfer-encoding:\s*chunked", head_text):
+        body = bytearray()
+        while True:
+            line = await up_reader.readline()
+            size = int(line.strip().split(b";")[0], 16)
+            if size == 0:
+                await up_reader.readline()  # trailing CRLF after the last chunk
+                break
+            body += await up_reader.readexactly(size)
+            await up_reader.readexactly(2)  # CRLF after chunk data
+        return bytes(body)
+    return await up_reader.read()
 
 
 async def _tunnel(client_reader, client_writer, up_reader, up_writer) -> None:
@@ -66,24 +88,21 @@ async def _tunnel(client_reader, client_writer, up_reader, up_writer) -> None:
 async def _forward_response(reader, writer, up_reader, up_writer) -> None:
     head = await _read_head(up_reader)
     text = head.decode("latin-1")
-    m = re.search(r"(?i)content-length:\s*(\d+)", text)
-    body = b""
-    if m:
-        clen = int(m.group(1))
-        while len(body) < clen:
-            chunk = await up_reader.read(clen - len(body))
-            if not chunk:
-                break
-            body += chunk
-    body = _rewrite_body(body)
-    text = re.sub(r"(?i)content-length:\s*\d+", f"Content-Length: {len(body)}", text)
-    writer.write(text.encode("latin-1") + body)
-    await writer.drain()
+    status_line = text.split("\r\n", 1)[0]
 
-    if " 101 " in text.split("\r\n", 1)[0]:
+    if " 101 " in status_line:
+        # WebSocket upgrade: no body — forward the 101 head, then tunnel bytes.
+        writer.write(head)
+        await writer.drain()
         await _tunnel(reader, writer, up_reader, up_writer)
-    else:
-        writer.close()
+        return
+
+    body = _rewrite_body(await _read_body(up_reader, text))
+    kept = [ln for ln in text.split("\r\n") if not re.match(r"(?i)(content-length|transfer-encoding):", ln)]
+    new_head = "\r\n".join(kept).rstrip("\r\n") + f"\r\nContent-Length: {len(body)}\r\n\r\n"
+    writer.write(new_head.encode("latin-1") + body)
+    await writer.drain()
+    writer.close()
 
 
 async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
