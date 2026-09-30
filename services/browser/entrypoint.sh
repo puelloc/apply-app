@@ -1,9 +1,7 @@
 #!/bin/sh
-# Start Xvfb + headed Chromium, then forward CDP to the container's external interface.
-#
-# Chrome 136+ removed --remote-debugging-address, so Chromium's CDP only binds 127.0.0.1. We run
-# Chromium on loopback 9221 and socat-forward 0.0.0.0:9222 -> 127.0.0.1:9221 so the worker can reach
-# CDP over the internal browser_net.
+# Start Xvfb + headed Chromium, then run the CDP relay so the worker can reach Chromium's loopback
+# CDP over the browser_net (Chrome 136+ rejects non-localhost Host headers and reports a 127.0.0.1
+# WebSocket URL — the relay rewrites both).
 set -e
 
 Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
@@ -30,6 +28,7 @@ fi
 
 dbus-run-session -- "$CHROME" \
   --remote-debugging-port=9221 \
+  --remote-allow-origins=* \
   $PROXY_ARGS \
   $BYPASS_ARGS \
   --no-sandbox \
@@ -40,4 +39,5 @@ dbus-run-session -- "$CHROME" \
   --no-default-browser-check \
   about:blank &
 
-exec socat TCP-LISTEN:9222,bind=0.0.0.0,reuseaddr,fork TCP:127.0.0.1:9221
+# CDP relay (replaces socat): rewrites Host + ws URL, tunnels the WebSocket.
+exec python3 cdp_relay.py

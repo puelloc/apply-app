@@ -27,7 +27,7 @@ ENV PATH="/venv/bin:${PATH}" \
     DISPLAY=:99
 
 WORKDIR /app
-COPY entrypoint.sh ./
+COPY entrypoint.sh cdp_relay.py ./
 RUN chmod +x entrypoint.sh
 
 EXPOSE 9222
