@@ -137,6 +137,7 @@ async def run_workflow(schema: WorkflowDefinitionSchema) -> dict:
 async def main() -> None:
     print(f"W1-W3 workflow-use — model={MODEL} host={OLLAMA_HOST} form={FORM_URL}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    serve_form()  # start the mock-form server before W2/W3 navigate to it
 
     # ---- W1: parameterized workflow file contains no real values ----
     schema = build_schema()
