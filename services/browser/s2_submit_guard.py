@@ -56,6 +56,12 @@ async def main() -> None:
         page = await context.new_page()
         await page.goto(FORM_URL)
 
+        # Fill the required fields first: a submit click on an invalid form is stopped by HTML5
+        # validation (no `submit` event), so we fill to reach the real submit path the guard blocks.
+        await page.fill("input[name=first_name]", "Test")
+        await page.fill("input[name=last_name]", "User")
+        await page.fill("input[name=email]", "test@example.invalid")
+
         await page.click("#submit")                              # click the submit button
         await page.focus("input[name=first_name]")
         await page.press("input[name=first_name]", "Enter")      # Enter key
