@@ -26,6 +26,10 @@ services:
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [backend, proxy]
+    # Route to the Ollama box for `doctor`'s reachability check.
+    extra_hosts:
+      - "ai.siggy-lab.org:192.168.50.76"
+      - "siggy-lab.org:192.168.50.76"
     volumes:
       - db:/data/db
       - artifacts:/data/artifacts
@@ -63,6 +67,10 @@ services:
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [backend, browser_net]
+    # The backend network is internal; this is the "route to the Ollama box" the plan calls for.
+    extra_hosts:
+      - "ai.siggy-lab.org:192.168.50.76"
+      - "siggy-lab.org:192.168.50.76"
     volumes:
       - vault:/data/vault
       - workflows:/data/workflows
