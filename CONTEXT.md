@@ -106,14 +106,12 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 | Test | Status |
 | --- | --- |
 | O1 | pass · O2 fail (Q4 headroom) → **resolved via Q3-64k** · O3/O4/O5 pass · O6 untested (firewall) |
-| P1/P2 | pass · P3 untested (manual RAM tabs) · P4 in progress (headless works; headed needs Xvfb) · P5 gated |
+| P1/P2 | pass · P3 untested (manual RAM tabs) · P4 pass (headless fills; headed → KasmVNC browser container) · P5 gated |
 | W1 | pass · W2 fail (select bug) · W3 fail (fallback gap) |
 | N/D/E/S/R/L | untested |
 
 ## Next steps (in order)
 
-1. Finish P4: re-run `run-spike.sh p4_browseruse.py` (headless should now fill after the URL fix);
-   headed leg is deferred to the KasmVNC browser container (build step 5).
-2. Manual: P3 (RAM per tab in KasmVNC), O6 (firewall: raw `:11434` → proxy only), P5 (gated).
-3. Then **build step 1**: Compose skeleton with the four networks, egress proxy, healthchecks, internal
+1. Manual: P3 (RAM per tab in KasmVNC), O6 (firewall: raw `:11434` → proxy only), P5 (gated).
+2. Then **build step 1**: Compose skeleton with the four networks, egress proxy, healthchecks, internal
    DNS, NPM hosts (N and D tests).
