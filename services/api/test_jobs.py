@@ -7,6 +7,7 @@ from sqlalchemy import update
 
 from app.main import create_app
 from app.models import Base, Job
+from app.security import hash_token
 
 JOB = {"company_name": "Acme", "title": "Engineer", "listing_url": "http://x", "application_url": "http://y"}
 
@@ -16,8 +17,9 @@ class TestJobsApi(unittest.TestCase):
         fd, self.path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         self.app = create_app(db_path=self.path)
+        self.app.state.token_hashes = {"admin": hash_token("admin"), "ops": hash_token("ops"), "diagnose": hash_token("diag")}
         Base.metadata.create_all(self.app.state.db.engine)
-        self.client = TestClient(self.app)
+        self.client = TestClient(self.app, headers={"Authorization": "Bearer ops"})
 
     def tearDown(self) -> None:
         self.app.state.db.engine.dispose()
@@ -69,8 +71,9 @@ class TestLeaseApi(unittest.TestCase):
         fd, self.path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         self.app = create_app(db_path=self.path)
+        self.app.state.token_hashes = {"admin": hash_token("admin"), "ops": hash_token("ops"), "diagnose": hash_token("diag")}
         Base.metadata.create_all(self.app.state.db.engine)
-        self.client = TestClient(self.app)
+        self.client = TestClient(self.app, headers={"Authorization": "Bearer ops"})
 
     def tearDown(self) -> None:
         self.app.state.db.engine.dispose()

@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 from ..deps import get_session
 from ..schemas.job import JobRead
 from ..schemas.lease import LeaseAcquired, LeaseToken
+from ..security import require_scope
 from ..services import jobs as service
 
-router = APIRouter(prefix="/leases", tags=["leases"])
+router = APIRouter(prefix="/leases", tags=["leases"], dependencies=[Depends(require_scope("ops"))])
 
 
 @router.post("/acquire", response_model=LeaseAcquired)

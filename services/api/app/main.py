@@ -11,12 +11,14 @@ from fastapi import FastAPI
 from .config import get_settings
 from .db import Database
 from .routes import jobs, leases
+from .security import load_token_hashes
 
 
 def create_app(db_path: str | None = None) -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="apply-app api", version="0.1.0")
     app.state.db = Database(db_path or settings.db_path)
+    app.state.token_hashes = load_token_hashes()
 
     app.include_router(jobs.router)
     app.include_router(leases.router)
