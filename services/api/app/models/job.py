@@ -32,3 +32,4 @@ class Job(TimestampMixin, Base):
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resume_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True)

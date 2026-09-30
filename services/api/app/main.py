@@ -10,12 +10,16 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .db import Database
+from .routes import jobs, leases
 
 
-def create_app() -> FastAPI:
+def create_app(db_path: str | None = None) -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="apply-app api", version="0.1.0")
-    app.state.db = Database(settings.db_path)
+    app.state.db = Database(db_path or settings.db_path)
+
+    app.include_router(jobs.router)
+    app.include_router(leases.router)
 
     @app.get("/health")
     def health() -> dict[str, str]:
