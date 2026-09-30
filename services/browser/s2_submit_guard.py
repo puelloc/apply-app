@@ -1,9 +1,9 @@
 """S2: submit-guard suite.
 
 Proves the guard blocks every submit mechanism and that ZERO submit requests reach the mock server.
-Run on the Pi (needs Playwright + Chromium, e.g. the spike venv at ~/apply-spikes/venv):
+Run on the Pi in Docker (Chromium + system deps live in the image):
 
-    ~/apply-spikes/venv/bin/python services/browser/s2_submit_guard.py
+    ./scripts/s2-submit-guard.sh
 
 Pass = "blocked: 4" and "POSTs: 0".
 """
