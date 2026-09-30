@@ -9,15 +9,15 @@ cd "$SCRIPT_DIR"
 
 # 1. Generate the API tokens + worker token (fake/canary-safe; never commit real values).
 mkdir -p secrets
-[ -s secrets/worker_api_token ] || openssl rand -hex 32 > secrets/worker_api_token
-for scope in admin diagnose mcp; do
-  if [ ! -s "secrets/api_${scope}_token_hash.txt" ]; then
+[ -s secrets/worker_api_token.txt ] || openssl rand -hex 32 > secrets/worker_api_token.txt
+for f in api_admin_token_hash api_diagnose_token_hash mcp_api_token_hash; do
+  if [ ! -s "secrets/$f.txt" ]; then
     tok=$(openssl rand -hex 32)
-    printf '%s' "$tok" | sha256sum | awk '{print $1}' > "secrets/api_${scope}_token_hash.txt"
+    printf '%s' "$tok" | sha256sum | awk '{print $1}' > "secrets/$f.txt"
   fi
 done
 # The worker uses the ops token; its hash is what the api compares against.
-printf '%s' "$(cat secrets/worker_api_token)" | sha256sum | awk '{print $1}' > secrets/api_ops_token_hash.txt
+printf '%s' "$(cat secrets/worker_api_token.txt)" | sha256sum | awk '{print $1}' > secrets/api_ops_token_hash.txt
 [ -s secrets/imap_user.txt ] || echo "canary@example.invalid" > secrets/imap_user.txt
 [ -s secrets/imap_pass.txt ] || echo "CANARY-imap-pass" > secrets/imap_pass.txt
 
@@ -32,7 +32,7 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
-OPS_TOKEN=$(cat secrets/worker_api_token)
+OPS_TOKEN=$(cat secrets/worker_api_token.txt)
 docker compose exec -T api python3 -c "
 import urllib.request, json
 body = json.dumps({'company_name':'Acme','title':'Engineer','listing_url':'http://mock-ats:8000/greenhouse.html','application_url':'http://mock-ats:8000/greenhouse.html','ats':'greenhouse'}).encode()
