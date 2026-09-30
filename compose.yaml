@@ -81,10 +81,19 @@ services:
   # The browser's ONLY route out. Denies private/link-local/loopback, checks the resolved IP
   # (DNS-rebinding defense), enforces the per-job domain allowlist, and logs all domains.
   egress-proxy:
-    image: ghcr.io/apply-app/egress-proxy:dev # PIN BY DIGEST (step 1)
+    build: ./services/egress-proxy             # dev build; pin by digest for prod
+    image: apply-app/egress-proxy:dev
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [browser_net, egress]
+    environment:
+      EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-}   # empty = allow all public hosts (test/profile default)
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1', 3128), 2).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   # Local Greenhouse/Lever/Ashby fixtures for the `test` profile. Never reached by real browsers
   # in dev/prod; used by tests N1-N6, S1-S5, W1-W3, and the adapter work.
