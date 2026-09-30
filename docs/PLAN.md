@@ -297,12 +297,12 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | P3 | untested | | |
 | P4 | pass | 2026-09-30 | Headless: browser-use + `ChatOllama`(qwen38-q3-64k) filled all 9 mock-form fields with CANARY values and stopped without clicking Submit (wall 70.1s); `throttled=0x0`. Headed: no X server in the spike container (expected) — headed-vs-hybrid RAM measurement deferred to the KasmVNC browser container (step 5). |
 | P5 | untested | | |
-| N1 | untested | | |
-| N2 | untested | | |
-| N3 | untested | | |
-| N4 | untested | | |
-| N5 | untested | | |
-| N6 | untested | | |
+| N1 | pass | 2026-09-30 | From the internal `browser_net` container: `http://169.254.169.254` and `http://192.168.1.1` both unreachable (000/7). |
+| N2 | pass | 2026-09-30 | `https://example.com` direct from `browser_net` → unreachable (000); through the egress proxy → 200. |
+| N3 | pass | 2026-09-30 | `http://localtest.me` (→127.0.0.1) and `http://10.0.0.1` through the proxy → 403 (rebinding defense). |
+| N4 | untested | | Deferred to the browser service (step 5). |
+| N5 | untested | | Deferred to the browser service (step 5). |
+| N6 | pass | 2026-09-30 | With `EGRESS_ALLOWLIST=example.com`: `example.com` → 200, `neverssl.com` → 403, and the denied domain appears in the proxy log. |
 | D1 | untested | | |
 | D2 | untested | | |
 | D3 | untested | | |
@@ -367,3 +367,4 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **O6 raw-port lock deprioritized.** Trusted LAN (sole user) → the ufw lock on raw `:11434` is skipped; "browser can't reach Ollama" is enforced by the egress proxy (step 5). O6 marked pass (domain reachable).
 - **Started build step 1 + maintainability principle.** Small, focused, human-maintainable modules (pure policy vs. I/O), no god-files; began with the egress proxy.
 - **Egress proxy built + verified live.** `scripts/egress-smoke.sh` passed 4/4 (HTTPS CONNECT, HTTP forward, private-IP deny, loopback deny via `localtest.me`). Found + fixed a CONNECT-header bug (leftover `Host:` header corrupted the TLS handshake). Added `scripts/n-tests.sh` (N1/N2/N3/N6); N4/N5 + D1–D5 deferred to the browser/api/NPM steps.
+- **N1/N2/N3/N6 pass (9/9).** Network isolation + egress proxy verified live on the Pi. Build step 1's buildable portion (networks + proxy) is done; N4/N5/D are deferred to later services.
