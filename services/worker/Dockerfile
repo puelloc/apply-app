@@ -18,8 +18,9 @@ RUN python3 -m venv /venv \
 
 COPY services/worker/*.py ./
 # The vault is shared with the api (single source in services/api/app/vault.py); consolidate into a
-# shared package in a later cleanup.
+# shared package in a later cleanup. The submit guard is injected by the worker via browser-use's CDP.
 COPY services/api/app/vault.py vault.py
+COPY services/browser/guard.js guard.js
 
 ENV PATH="/venv/bin:${PATH}" \
     HOME=/tmp \

@@ -30,19 +30,24 @@ def agent_step_to_payload(adapter: str, run_id: str, step: dict[str, Any]) -> di
     }
 
 
-def from_browser_use(step: Any) -> dict[str, Any]:
-    """Normalize a browser-use AgentHistory step (duck-typed) to the canonical step dict.
+def from_browser_use_step(browser_state: Any, model_output: Any, step_number: int) -> dict[str, Any]:
+    """Normalize browser-use's per-step callback args to the canonical step dict.
 
-    `run_id`/`adapter` are added by the caller (they aren't on the step itself).
+    browser-use 0.13.10 calls `register_new_step_callback(browser_state_summary, model_output,
+    step_number)` after each step. The action name is the first key of `model_output.action[0]` (a
+    dynamic ActionModel, e.g. `{'input_text': {...}}`). `run_id`/`adapter` are added by the caller.
     """
-    model_output = getattr(step, "model_output", None)
     actions = getattr(model_output, "action", None) or []
     action = actions[0] if actions else None
+    if action is not None:
+        action_name = next(iter(action.model_dump(exclude_unset=True).keys()), "no-action")
+    else:
+        action_name = "no-action"
     return {
-        "step": getattr(step, "step_number", None) or 0,
-        "action": getattr(action, "name", None) or "no-action",
+        "step": step_number,
+        "action": action_name,
         "eval": getattr(model_output, "evaluation_previous_goal", None),
         "memory": getattr(model_output, "memory", None),
         "next_goal": getattr(model_output, "next_goal", None),
-        "url": getattr(getattr(step, "state", None), "url", None),
+        "url": getattr(browser_state, "url", None),
     }

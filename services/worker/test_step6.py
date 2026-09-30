@@ -1,7 +1,7 @@
 import unittest
 
 from adapters import fields, selector
-from reasoning import agent_step_to_payload, from_browser_use
+from reasoning import agent_step_to_payload, from_browser_use_step
 
 
 class TestAdapters(unittest.TestCase):
@@ -36,6 +36,11 @@ class TestReasoning(unittest.TestCase):
         self.assertEqual(payload["error_code"], "selector_missing")
 
 
+class _FakeAction:
+    def model_dump(self, exclude_unset=True):
+        return {"input_text": {"index": 1}}
+
+
 class _FakeModelOutput:
     def __init__(self):
         self.evaluation_previous_goal = "eval"
@@ -44,23 +49,23 @@ class _FakeModelOutput:
         self.action = [_FakeAction()]
 
 
-class _FakeAction:
-    name = "input_text"
-
-
-class _FakeStep:
-    step_number = 2
-    model_output = _FakeModelOutput()
-    state = None
+class _FakeBrowserState:
+    url = "http://x"
 
 
 class TestFromBrowserUse(unittest.TestCase):
     def test_normalize(self):
-        step = from_browser_use(_FakeStep())
+        step = from_browser_use_step(_FakeBrowserState(), _FakeModelOutput(), 2)
         self.assertEqual(step["step"], 2)
         self.assertEqual(step["action"], "input_text")
         self.assertEqual(step["eval"], "eval")
-        self.assertEqual(step["url"], None)
+        self.assertEqual(step["url"], "http://x")
+
+    def test_no_action(self):
+        mo = _FakeModelOutput()
+        mo.action = []
+        step = from_browser_use_step(_FakeBrowserState(), mo, 1)
+        self.assertEqual(step["action"], "no-action")
 
 
 if __name__ == "__main__":

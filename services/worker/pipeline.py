@@ -1,8 +1,8 @@
-"""Run one job: acquire a lease, fill the form via browser-use, record reasoning, release.
+"""Run one job: acquire -> fill via browser-use (with submit guard) -> record reasoning -> release.
 
-The browser-use integration (ChatOllama + Agent + BrowserProfile) follows the verified spike pattern
-(scripts/spikes/p4_browseruse.py). The submit guard, CDP-to-browser-service connection, and the exact
-fill state machine are wired and verified on the Pi in step 6c; this is the skeleton + contract.
+Uses browser-use 0.13.10's verified API (see scripts/spikes/p4_browseruse.py). The submit guard is
+injected via `_cdp_add_init_script` (browser-use injects per-document scripts through CDP for both
+local and remote sessions); each step's reasoning is captured via `register_new_step_callback`.
 """
 
 from __future__ import annotations
@@ -10,18 +10,19 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
+from pathlib import Path
 
-from browser_use import Agent, BrowserProfile
+from browser_use import Agent, BrowserProfile, BrowserSession
 from browser_use.llm import ChatOllama
 
-from reasoning import agent_step_to_payload, from_browser_use
+from reasoning import agent_step_to_payload, from_browser_use_step
 
 MODEL = os.environ.get("QWEN38_TAG", "qwen38-q3-64k:latest")
 OLLAMA_HOST = os.environ.get("OLLAMA_BASE_URL", "https://ai.siggy-lab.org")
+GUARD = Path("guard.js").read_text()
 
 
 def _chromium_path() -> str:
-    # Playwright's sync API refuses to run inside an event loop, so resolve it lazily per run.
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
@@ -37,6 +38,19 @@ def make_llm() -> ChatOllama:
     return ChatOllama(model=MODEL, host=OLLAMA_HOST, ollama_options={"num_ctx": 65536, "think": False})
 
 
+def make_session() -> BrowserSession:
+    cdp_url = os.environ.get("BROWSER_CDP_URL")
+    if cdp_url:
+        return BrowserSession(cdp_url=cdp_url)
+    return BrowserSession(
+        browser_profile=BrowserProfile(executable_path=_chromium_path(), headless=True, args=_browser_args())
+    )
+
+
+async def inject_guard(session: BrowserSession) -> None:
+    await session._cdp_add_init_script(GUARD)
+
+
 def build_task(job: dict) -> str:
     # TODO(step 6c): build the fill task from the job's profile/answers + the adapter's fields.
     url = job.get("application_url") or job.get("listing_url")
@@ -49,21 +63,29 @@ def build_task(job: dict) -> str:
 async def run_job(api, job: dict, llm: ChatOllama) -> None:
     run_id = uuid.uuid4().hex[:16]
     adapter = job.get("ats") or "unknown"
-    agent = Agent(
-        task=build_task(job),
-        llm=llm,
-        browser_profile=BrowserProfile(executable_path=_chromium_path(), headless=True, args=_browser_args()),
-        use_vision=False,
-        use_thinking=False,
-        max_failures=2,
-    )
-    result = await agent.run()
+    session = make_session()
+    await session.start()
+    try:
+        await inject_guard(session)
 
-    # Capture every step's reasoning (eval/memory/next_goal/action) into step events.
-    history = getattr(result, "history", None) or []
-    for step in history:
-        api.add_step_event(job["id"], agent_step_to_payload(adapter, run_id, from_browser_use(step)))
+        def on_step(browser_state, model_output, step_number) -> None:
+            payload = agent_step_to_payload(
+                adapter, run_id, from_browser_use_step(browser_state, model_output, step_number)
+            )
+            api.add_step_event(job["id"], payload)
 
+        agent = Agent(
+            task=build_task(job),
+            llm=llm,
+            browser_session=session,
+            use_vision=False,
+            use_thinking=False,
+            max_failures=2,
+            register_new_step_callback=on_step,
+        )
+        await agent.run()
+    finally:
+        await session.stop()
     # TODO(step 6c): transition the job to ready_for_review once the state machine supports it.
 
 
