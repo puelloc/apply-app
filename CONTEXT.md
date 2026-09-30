@@ -120,4 +120,5 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 2. **Steps 1–2 done.** Step 1: networks + egress proxy (N1/N2/N3/N6 pass; N4/N5 → step 5, D → steps 3/5/9). Step 2: mock ATS fixtures + canary harness + snapshot scaffold.
 3. **Build step 3 — DONE.** API: error taxonomy, redacted JSON logging, WAL db + `/health`, models + Alembic (2 migrations), jobs/queue/leases endpoints, scoped bearer auth, `doctor`. **Debuggability requirement:** structured/searchable logs, agent reasoning captured, logs viewable via API.
 4. **Build step 4 — core done**: vault (seal/unseal, passphrase-check, encrypted persistence) + two-phase account writes + reconcile. Worker instantiation + API `status`/`seal`/`unseal` in step 5.
-5. **Build step 5 — in progress**: submit guard + S2 pass, browser image (Xvfb + CDP) + per-job allowlist done. Next: browser smoke on Pi (N4), then step 6 adapters. KasmVNC deferred to step 8.
+5. **Build step 5 — done**: submit guard + S2 pass, browser image + N4 pass, per-job allowlist. N5 assertion with step-6 worker tests.
+6. **Build step 6 — in progress**: worker→API step-event contract + reasoning capture + ATS field maps done. Next: worker pipeline (browser-use/workflow-use + Ollama), vault instantiation, Greenhouse adapter, N5.
