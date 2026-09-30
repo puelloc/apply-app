@@ -101,6 +101,13 @@ async def run_once(api, llm: ChatOllama) -> bool:
     job = lease["job"]
     try:
         await run_job(api, job, llm)
+    except Exception:
+        # A failed run must not leave the job stuck in `running`.
+        try:
+            api.set_state(job["id"], "failed")
+        except Exception:
+            pass
+        raise
     finally:
         api.release(job["id"], lease["lease_token"])
     return True

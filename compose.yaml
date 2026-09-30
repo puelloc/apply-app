@@ -79,8 +79,10 @@ services:
       # Drive the browser service over its CDP (the submit guard is injected there too).
       BROWSER_CDP_URL: http://browser:9222
     depends_on:
-      - api
-      - browser
+      api:
+        condition: service_healthy
+      browser:
+        condition: service_healthy
     # The vault key is NOT a file secret: it is supplied at boot and lives only in worker memory
     # (build step 4). It re-seals on every reboot.
 
@@ -100,6 +102,12 @@ services:
       # (the mock ATS) are reached directly.
       BROWSER_PROXY: http://egress-proxy:3128
       BROWSER_PROXY_BYPASS: mock-ats,localhost,127.0.0.1
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9222/json/version', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     depends_on:
       - egress-proxy
     # no ports published here; the worker reaches CDP at browser:9222 on browser_net.
