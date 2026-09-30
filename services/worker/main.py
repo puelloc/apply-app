@@ -10,6 +10,7 @@ import asyncio
 import os
 
 from vault import Vault  # COPY'd from services/api/app/vault.py
+from pipeline import main as run_loop  # module-level import (pipeline resolves Chromium path pre-loop)
 
 
 async def main() -> None:
@@ -20,8 +21,6 @@ async def main() -> None:
         print("vault unsealed")
     else:
         print("vault sealed (set VAULT_PASSPHRASE to unseal)")
-
-    from pipeline import make_llm, main as run_loop
 
     await run_loop()
 

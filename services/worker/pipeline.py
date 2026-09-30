@@ -29,6 +29,10 @@ def _chromium_path() -> str:
         return pw.chromium.executable_path
 
 
+# Resolved at import time, before the event loop (Playwright's sync API can't run inside asyncio).
+EXECUTABLE_PATH = _chromium_path()
+
+
 def _browser_args() -> list[str]:
     raw = os.environ.get("BROWSER_USE_BROWSER_ARGS", "--no-sandbox --disable-gpu --disable-dev-shm-usage")
     return raw.split()
@@ -43,7 +47,7 @@ def make_session() -> BrowserSession:
     if cdp_url:
         return BrowserSession(cdp_url=cdp_url)
     return BrowserSession(
-        browser_profile=BrowserProfile(executable_path=_chromium_path(), headless=True, args=_browser_args())
+        browser_profile=BrowserProfile(executable_path=EXECUTABLE_PATH, headless=True, args=_browser_args())
     )
 
 

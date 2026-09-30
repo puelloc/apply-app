@@ -45,6 +45,10 @@ def _chromium_path() -> str:
         return pw.chromium.executable_path
 
 
+# Resolved at module level, before asyncio.run (Playwright's sync API can't run inside a loop).
+EXECUTABLE_PATH = _chromium_path()
+
+
 async def main() -> None:
     from browser_use import Agent, BrowserProfile, BrowserSession
     from browser_use.llm import ChatOllama
@@ -55,7 +59,7 @@ async def main() -> None:
     llm = ChatOllama(model=MODEL, host=OLLAMA_HOST, ollama_options={"num_ctx": 65536, "think": False})
     session = BrowserSession(
         browser_profile=BrowserProfile(
-            executable_path=_chromium_path(), headless=True,
+            executable_path=EXECUTABLE_PATH, headless=True,
             args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
         )
     )
