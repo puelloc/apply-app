@@ -78,6 +78,10 @@ class EgressProxy:
             await self._reject(writer, "400 Bad Request", "bad CONNECT target")
             return
 
+        # The CONNECT request line is followed by headers that must be consumed now, otherwise they
+        # would be relayed to the upstream and corrupt the TLS handshake.
+        await self._drain_headers(reader)
+
         allowed, reason, ips = policy.check(host, port, self.allowlist)
         if not allowed:
             log.warning("deny CONNECT %s:%d — %s", host, port, reason)
@@ -147,6 +151,14 @@ class EgressProxy:
         upstream_writer.write(b"\r\n")
 
     # -- shared helpers -----------------------------------------------------
+
+    @staticmethod
+    async def _drain_headers(reader) -> None:
+        """Read and discard a request's headers up to (and including) the blank line."""
+        while True:
+            line = await reader.readline()
+            if not line or line in (b"\r\n", b"\n"):
+                return
 
     @staticmethod
     def _split_host_port(hostport: str, default_port: int) -> tuple[str | None, int]:
