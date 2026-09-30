@@ -21,7 +21,8 @@ x-service-common: &service-common
 services:
   # The source of truth, owning the DB. MCP and any future UI are its clients.
   api:
-    image: ghcr.io/apply-app/api:dev        # PIN BY DIGEST (step 1)
+    build: ./services/api
+    image: apply-app/api:dev
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [backend, proxy]
@@ -33,7 +34,14 @@ services:
       - api_admin_token_hash
       - api_ops_token_hash
       - api_diagnose_token_hash
-    # healthcheck + depends_on added in step 1
+    environment:
+      DB_PATH: /data/db/jobs.db
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   # FastMCP over streamable HTTP, calling the api with a scoped token.
   mcp:
