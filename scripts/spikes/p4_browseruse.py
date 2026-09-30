@@ -60,15 +60,19 @@ BROWSER_ARGS = _browser_args()
 
 
 def free_kb() -> int:
-    out = subprocess.check_output(["free", "-k"]).decode()
-    return int([l for l in out.splitlines() if l.startswith("Mem:")][0].split()[2])
+    # Read MemAvailable from /proc/meminfo (the host's view; the `free` binary is absent in slim containers).
+    for line in open("/proc/meminfo"):
+        if line.startswith("MemAvailable:"):
+            return int(line.split()[1])  # kB
+    return -1
 
 
 def throttled() -> str:
+    # vcgencmd is a Pi-host tool, absent inside the container.
     try:
         return subprocess.check_output(["vcgencmd", "get_throttled"]).decode().strip()
     except Exception:
-        return "n/a"
+        return "n/a (measure on host: vcgencmd get_throttled)"
 
 
 def serve_form() -> http.server.HTTPServer:
