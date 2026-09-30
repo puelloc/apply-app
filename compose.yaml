@@ -85,6 +85,11 @@ services:
     volumes:
       - browser-profile:/profile
       - uploads:/uploads:ro
+    environment:
+      # The browser's only route out (per-job allowlist enforced there).
+      BROWSER_PROXY: http://egress-proxy:3128
+    depends_on:
+      - egress-proxy
     # no ports published here; the worker reaches CDP at browser:9222 on browser_net.
 
   # The browser's ONLY route out. Denies private/link-local/loopback, checks the resolved IP

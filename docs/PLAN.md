@@ -300,7 +300,7 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 | N1 | pass | 2026-09-30 | From the internal `browser_net` container: `http://169.254.169.254` and `http://192.168.1.1` both unreachable (000/7). |
 | N2 | pass | 2026-09-30 | `https://example.com` direct from `browser_net` → unreachable (000); through the egress proxy → 200. |
 | N3 | pass | 2026-09-30 | `http://localtest.me` (→127.0.0.1) and `http://10.0.0.1` through the proxy → 403 (rebinding defense). |
-| N4 | untested | | Deferred to the browser service (step 5). |
+| N4 | pass | 2026-09-30 | Docker (`browser-smoke.sh`): browser image (Xvfb + Chromium + socat CDP forward) starts; CDP `/json/version` answers `"Browser": "Chrome/145.0.7632.0"`. |
 | N5 | untested | | Deferred to the browser service (step 5). |
 | N6 | pass | 2026-09-30 | With `EGRESS_ALLOWLIST=example.com`: `example.com` → 200, `neverssl.com` → 403, and the denied domain appears in the proxy log. |
 | D1 | untested | | |
@@ -381,3 +381,4 @@ Each test has an ID so the agent can track it in the plan. Pass criteria are in 
 - **Step 5a: page-level submit guard.** `services/browser/guard.js` (injected as a Playwright init script; blocks submit events, Enter-key submits, and `form.submit()`/`requestSubmit()`, recording each block on `window.__submitGuard`) + `services/browser/s2_submit_guard.py` (S2 test: 4 submit attempts → `blocked: 4`, `POSTs: 0`). Both syntax-checked; S2 runs on the Pi (needs Playwright + Chromium).
 - **S2 pass (live).** `s2-submit-guard.sh` on the Pi in Docker: `blocked: 4` (`submit-event, enter-key, submit, requestSubmit`), `POSTs: 0`. Guard verified against the mock ATS. (Two test-only fixes en route: run in Docker for Chromium's system deps, fill required fields so the submit event actually fires, and call `form.submit()` via the prototype because the button `id="submit"` shadows the method.)
 - **Step 5b: browser service + per-job allowlist.** Browser service builds from `services/browser` (headed Chromium under Xvfb, CDP on 9222 via the internal `browser_net` — that isolation is the relay, CDP never published). `services/worker/allowlist.py` (per-job allowlist: ATS host + apex + common CDN/SSO; 4 tests pass) + `scripts/browser-smoke.sh` (N4). **Decision:** KasmVNC deferred to the review UI (step 8); step 5's browser is the automation browser the worker drives over CDP.
+- **N4 pass (live).** `browser-smoke.sh`: CDP answers (`Chrome/145.0.7632.0`). Gotchas fixed en route: run in Docker (Chromium system deps), fresh tmpfs profile (stale `SingletonLock`), and **Chrome 145 removed `--remote-debugging-address`** so CDP only binds 127.0.0.1 — now `socat`-forwarded to `0.0.0.0:9222`.

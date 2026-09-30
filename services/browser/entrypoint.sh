@@ -16,8 +16,15 @@ with sync_playwright() as p:
 EOF
 )
 
+# The browser's ONLY route out is the egress proxy (compose sets BROWSER_PROXY=http://egress-proxy:3128).
+PROXY_ARGS=""
+if [ -n "${BROWSER_PROXY:-}" ]; then
+  PROXY_ARGS="--proxy-server=$BROWSER_PROXY"
+fi
+
 dbus-run-session -- "$CHROME" \
   --remote-debugging-port=9221 \
+  $PROXY_ARGS \
   --no-sandbox \
   --disable-gpu \
   --disable-dev-shm-usage \
