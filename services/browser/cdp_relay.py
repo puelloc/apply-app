@@ -24,7 +24,7 @@ async def _read_head(reader: asyncio.StreamReader) -> bytes:
 
 
 def _rewrite_request(head: bytes) -> bytes:
-    text = head.decode("latin-1")
+    text = head.decode("latin-1").rstrip("\r\n")
     lines = text.split("\r\n")
     out = [lines[0]]
     for line in lines[1:]:
