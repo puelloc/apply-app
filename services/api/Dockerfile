@@ -6,7 +6,8 @@ COPY requirements.txt ./
 RUN python3 -m venv /venv && /venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY app/ app/
-COPY alembic.ini alembic/ ./
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
 
 ENV PATH="/venv/bin:${PATH}"
 
