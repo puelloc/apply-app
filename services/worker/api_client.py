@@ -31,3 +31,6 @@ class ApiClient:
 
     def transition(self, job_id: int, action: str) -> None:
         self._post(f"/jobs/{job_id}/actions", {"action": action}).raise_for_status()
+
+    def set_state(self, job_id: int, state: str) -> None:
+        self._post(f"/jobs/{job_id}/state", {"state": state}).raise_for_status()

@@ -61,6 +61,13 @@ class TestJobsApi(unittest.TestCase):
         self._set_state(jid, "failed")
         self.assertEqual(self.client.post(f"/jobs/{jid}/actions", json={"action": "retry"}).json()["state"], "queued")
 
+    def test_pipeline_state_transition(self):
+        jid = self.client.post("/jobs", json=JOB).json()["id"]
+        # queued -> ready_for_review is not a valid direct pipeline transition
+        self.assertEqual(self.client.post(f"/jobs/{jid}/state", json={"state": "ready_for_review"}).status_code, 400)
+        self._set_state(jid, "running")
+        self.assertEqual(self.client.post(f"/jobs/{jid}/state", json={"state": "ready_for_review"}).json()["state"], "ready_for_review")
+
     def test_bulk_create(self):
         r = self.client.post("/jobs/bulk", json=[JOB, {**JOB, "title": "Other"}])
         self.assertEqual(r.json()["total"], 2)

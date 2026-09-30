@@ -21,10 +21,17 @@ PROXY_ARGS=""
 if [ -n "${BROWSER_PROXY:-}" ]; then
   PROXY_ARGS="--proxy-server=$BROWSER_PROXY"
 fi
+# Internal browser_net hosts (the mock ATS in the test profile) are reached directly, not via the
+# egress proxy (which correctly blocks private ranges).
+BYPASS_ARGS=""
+if [ -n "${BROWSER_PROXY_BYPASS:-}" ]; then
+  BYPASS_ARGS="--proxy-bypass-list=$BROWSER_PROXY_BYPASS"
+fi
 
 dbus-run-session -- "$CHROME" \
   --remote-debugging-port=9221 \
   $PROXY_ARGS \
+  $BYPASS_ARGS \
   --no-sandbox \
   --disable-gpu \
   --disable-dev-shm-usage \

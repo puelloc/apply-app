@@ -56,11 +56,12 @@ async def inject_guard(session: BrowserSession) -> None:
 
 
 def build_task(job: dict) -> str:
-    # TODO(step 6c): build the fill task from the job's profile/answers + the adapter's fields.
+    # TODO(step 7): build the fill task from the job's profile/answers + the adapter's fields.
+    # Step 6d uses fixed CANARY values so the end-to-end run is self-contained (no profile yet).
     url = job.get("application_url") or job.get("listing_url")
     return (
-        f"Open the application form at {url}. Fill every field with the profile values, then STOP. "
-        "Do NOT click any Submit or Next button."
+        f"Open the application form at {url}. Fill first name CANARY-First, last name CANARY-Last, "
+        "email canary@example.invalid, phone 555-0001. Then STOP. Do NOT click the Submit button."
     )
 
 
@@ -88,9 +89,9 @@ async def run_job(api, job: dict, llm: ChatOllama) -> None:
             register_new_step_callback=on_step,
         )
         await agent.run()
+        api.set_state(job["id"], "ready_for_review")
     finally:
         await session.stop()
-    # TODO(step 6c): transition the job to ready_for_review once the state machine supports it.
 
 
 async def run_once(api, llm: ChatOllama) -> bool:

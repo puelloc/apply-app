@@ -76,6 +76,8 @@ services:
       # Ollama, fronted by the reverse proxy with TLS (raw :11434 stays internal).
       OLLAMA_BASE_URL: https://ai.siggy-lab.org
       API_URL: http://api:8000
+      # Drive the browser service over its CDP (the submit guard is injected there too).
+      BROWSER_CDP_URL: http://browser:9222
     depends_on:
       - api
       - browser
@@ -94,8 +96,10 @@ services:
       - browser-profile:/profile
       - uploads:/uploads:ro
     environment:
-      # The browser's only route out (per-job allowlist enforced there).
+      # The browser's only route out (per-job allowlist enforced there). Internal browser_net hosts
+      # (the mock ATS) are reached directly.
       BROWSER_PROXY: http://egress-proxy:3128
+      BROWSER_PROXY_BYPASS: mock-ats,localhost,127.0.0.1
     depends_on:
       - egress-proxy
     # no ports published here; the worker reaches CDP at browser:9222 on browser_net.

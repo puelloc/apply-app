@@ -46,3 +46,7 @@ class JobListResponse(BaseModel):
 
 class JobAction(BaseModel):
     action: Literal["cancel", "skip", "retry", "requeue", "restage", "mark_submitted"]
+
+
+class JobStateUpdate(BaseModel):
+    state: Literal["awaiting_email", "account_created", "ready_for_review", "submitted", "failed", "needs_human"]

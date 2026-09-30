@@ -28,6 +28,26 @@ class InvalidTransition(ValueError):
     pass
 
 
+# Worker-driven pipeline transitions (distinct from the manual TRANSITIONS above, which are
+# user-initiated actions like cancel/retry). The worker sets state as the pipeline progresses.
+PIPELINE_TRANSITIONS: dict[str, frozenset[str]] = {
+    "queued": frozenset({"running"}),
+    "running": frozenset({"awaiting_email", "ready_for_review", "failed", "needs_human"}),
+    "awaiting_email": frozenset({"account_created", "failed", "needs_human"}),
+    "account_created": frozenset({"ready_for_review", "failed", "needs_human"}),
+    "ready_for_review": frozenset({"submitted", "failed", "needs_human"}),
+    "needs_human": frozenset({"running", "ready_for_review", "failed"}),
+}
+
+
+def set_state(job: Job, target: str) -> None:
+    """Apply a worker-driven pipeline transition, raising InvalidTransition when not allowed."""
+    allowed = PIPELINE_TRANSITIONS.get(job.state, frozenset())
+    if target not in allowed:
+        raise InvalidTransition(f"cannot move {job.state!r} -> {target!r}")
+    job.state = target
+
+
 def transition(job: Job, action: str) -> None:
     """Apply a manual state transition, raising InvalidTransition when it's not allowed."""
     try:
