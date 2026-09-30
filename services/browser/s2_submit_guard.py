@@ -19,7 +19,8 @@ from playwright.async_api import async_playwright
 
 GUARD = Path(__file__).resolve().parent / "guard.js"
 FIXTURES = Path(__file__).resolve().parent.parent / "mock-ats" / "fixtures"
-FORM_URL = "http://127.0.0.1:8000/greenhouse.html"
+PORT = 8137
+FORM_URL = f"http://127.0.0.1:{PORT}/greenhouse.html"
 
 POSTS: list[str] = []
 
@@ -37,8 +38,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+class ReusableHTTPServer(http.server.HTTPServer):
+    allow_reuse_address = True
+
+
 def serve() -> None:
-    httpd = http.server.HTTPServer(("127.0.0.1", 8000), Handler)
+    httpd = ReusableHTTPServer(("127.0.0.1", PORT), Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
 
