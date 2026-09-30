@@ -30,7 +30,7 @@ FORM_URL = os.environ.get("FORM_URL", f"http://127.0.0.1:{PORT}/mock-greenhouse.
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "mock-greenhouse.html"
 
 TASK = (
-    "Open the mock application form. Fill it with these CANARY test values only: "
+    f"Open the mock application form at {FORM_URL}. Fill it with these CANARY test values only: "
     "first name CANARY-First, last name CANARY-Last, email canary@example.invalid, "
     "phone 555-0001, linkedin https://example.invalid/in/canary, website https://example.invalid, "
     "years of experience 9, work authorization select 'I am authorized to work in the US', "
