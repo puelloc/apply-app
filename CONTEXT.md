@@ -105,13 +105,13 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 
 | Test | Status |
 | --- | --- |
-| O1 | pass · O2 fail (Q4 headroom) → **resolved via Q3-64k** · O3/O4/O5 pass · O6 untested (firewall) |
+| O1 | pass · O2 fail (Q4 headroom) → **resolved via Q3-64k** · O3/O4/O5 pass · O6 pass (domain reachable; raw-port lock skipped) |
 | P1/P2 | pass · P3 untested (manual RAM tabs) · P4 pass (headless fills; headed → KasmVNC browser container) · P5 gated |
 | W1 | pass · W2 fail (select bug) · W3 fail (fallback gap) |
 | N/D/E/S/R/L | untested |
 
 ## Next steps (in order)
 
-1. Manual: P3 (RAM per tab in KasmVNC), O6 (firewall: raw `:11434` → proxy only), P5 (gated).
+1. Manual: P3 (RAM per tab in KasmVNC), P5 (gated). O6 raw-port lock is skipped by user decision (trusted LAN).
 2. Then **build step 1**: Compose skeleton with the four networks, egress proxy, healthchecks, internal
    DNS, NPM hosts (N and D tests).
