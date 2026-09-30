@@ -59,8 +59,10 @@ async def main() -> None:
         await page.click("#submit")                              # click the submit button
         await page.focus("input[name=first_name]")
         await page.press("input[name=first_name]", "Enter")      # Enter key
-        await page.evaluate("document.querySelector('form').submit()")        # JS form.submit()
-        await page.evaluate("document.querySelector('form').requestSubmit()")  # requestSubmit
+        # Call the real methods via the prototype: the button id="submit" shadows `form.submit`,
+        # so a bare form.submit() would be the button, not the method.
+        await page.evaluate("HTMLFormElement.prototype.submit.call(document.querySelector('form'))")
+        await page.evaluate("HTMLFormElement.prototype.requestSubmit.call(document.querySelector('form'))")
 
         state = await page.evaluate("window.__submitGuard")
         print("blocked:", state["blocked"])
