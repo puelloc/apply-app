@@ -6,6 +6,8 @@ forms, and parks each job on its final page — **never** clicking submit. You r
 The plan is the source of truth: **[docs/PLAN.md](docs/PLAN.md)**. All decisions, discoveries, and
 verification evidence live there.
 
+For a fresh-session handoff (rules, hosts, versions, gotchas, current state): **[CONTEXT.md](CONTEXT.md)**.
+
 ## Layout
 
 | Path | Purpose |
