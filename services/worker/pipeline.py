@@ -15,6 +15,7 @@ from pathlib import Path
 from browser_use import Agent, BrowserProfile, BrowserSession
 from browser_use.llm import ChatOllama
 
+from adapters import requires_account
 from reasoning import agent_step_to_payload, from_browser_use_step
 
 MODEL = os.environ.get("QWEN38_TAG", "qwen38-q3-64k:latest")
@@ -65,7 +66,7 @@ def build_task(job: dict) -> str:
     )
 
 
-async def run_job(api, job: dict, llm: ChatOllama) -> None:
+async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
     run_id = uuid.uuid4().hex[:16]
     adapter = job.get("ats") or "unknown"
     session = make_session()
@@ -93,6 +94,15 @@ async def run_job(api, job: dict, llm: ChatOllama) -> None:
         api.set_state(job["id"], "ready_for_review" if result.is_successful() is True else "failed")
     finally:
         await session.stop()
+
+
+async def run_job(api, job: dict, llm: ChatOllama) -> None:
+    """Dispatch to the right application path (quick-apply vs account-required)."""
+    if job.get("requires_account") or requires_account(job.get("ats")):
+        # Account path (step 7c): signup/login -> verify -> confirm -> apply.
+        api.set_state(job["id"], "awaiting_email")
+        return
+    await _fill_and_park(api, job, llm)
 
 
 async def run_once(api, llm: ChatOllama) -> bool:

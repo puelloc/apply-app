@@ -68,6 +68,12 @@ class TestJobsApi(unittest.TestCase):
         self._set_state(jid, "running")
         self.assertEqual(self.client.post(f"/jobs/{jid}/state", json={"state": "ready_for_review"}).json()["state"], "ready_for_review")
 
+    def test_requires_account_default_and_set(self):
+        jid = self.client.post("/jobs", json=JOB).json()["id"]
+        self.assertFalse(self.client.get(f"/jobs/{jid}").json()["requires_account"])
+        jid2 = self.client.post("/jobs", json={**JOB, "requires_account": True}).json()["id"]
+        self.assertTrue(self.client.get(f"/jobs/{jid2}").json()["requires_account"])
+
     def test_bulk_create(self):
         r = self.client.post("/jobs/bulk", json=[JOB, {**JOB, "title": "Other"}])
         self.assertEqual(r.json()["total"], 2)

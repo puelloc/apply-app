@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import String, Text
+from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -33,3 +33,6 @@ class Job(TimestampMixin, Base):
     resume_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True)
+    # True = the site requires an account (signup/login -> verify -> apply). False (default) = quick
+    # apply, no account. Set explicitly at intake, or derived from the ATS default.
+    requires_account: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")

@@ -44,6 +44,9 @@ ASHBY = {
 
 ADAPTERS = {"greenhouse": GREENHOUSE, "lever": LEVER, "ashby": ASHBY}
 
+# ATS vendors that force per-tenant account creation (signup/login) before applying.
+ACCOUNT_REQUIRED = {"workday", "icims", "taleo"}
+
 
 def selector(ats: str, field: str) -> str | None:
     return ADAPTERS.get(ats, {}).get(field)
@@ -51,3 +54,7 @@ def selector(ats: str, field: str) -> str | None:
 
 def fields(ats: str) -> list[str]:
     return list(ADAPTERS.get(ats, {}).keys())
+
+
+def requires_account(ats: str | None) -> bool:
+    return (ats or "").lower() in ACCOUNT_REQUIRED

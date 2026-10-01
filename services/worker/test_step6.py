@@ -1,6 +1,6 @@
 import unittest
 
-from adapters import fields, selector
+from adapters import fields, requires_account, selector
 from reasoning import agent_step_to_payload, from_browser_use_step
 
 
@@ -16,6 +16,12 @@ class TestAdapters(unittest.TestCase):
     def test_fields(self):
         self.assertIn("first_name", fields("greenhouse"))
         self.assertIn("why", fields("lever"))
+
+    def test_requires_account(self):
+        self.assertTrue(requires_account("workday"))
+        self.assertTrue(requires_account("iCIMS"))
+        self.assertFalse(requires_account("greenhouse"))
+        self.assertFalse(requires_account(None))
 
 
 class TestReasoning(unittest.TestCase):
