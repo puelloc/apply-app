@@ -88,8 +88,9 @@ async def run_job(api, job: dict, llm: ChatOllama) -> None:
             max_failures=2,
             register_new_step_callback=on_step,
         )
-        await agent.run()
-        api.set_state(job["id"], "ready_for_review")
+        result = await agent.run()
+        # Park only on a true success; otherwise mark failed (a stopped-with-error agent is not reviewable).
+        api.set_state(job["id"], "ready_for_review" if result.is_successful() is True else "failed")
     finally:
         await session.stop()
 
