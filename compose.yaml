@@ -159,9 +159,10 @@ services:
       - artifacts:/artifacts:ro
 
 networks:
-  # Internal: api, mcp, worker, plus a route to the Ollama box.
-  backend:
-    internal: true
+  # Not internal on purpose: the worker needs a route to the Ollama box (ai.siggy-lab.org) via
+  # extra_hosts. Docker's internal:true removes the bridge gateway, so extra_hosts alone can't reach
+  # the LAN. The browser remains isolated behind the egress proxy (browser_net stays internal).
+  backend: {}
   # Internal: worker, browser, egress-proxy. The worker listens on nothing here.
   browser_net:
     internal: true
