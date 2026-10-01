@@ -122,4 +122,4 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 4. **Build step 4 — core done**: vault (seal/unseal, passphrase-check, encrypted persistence) + two-phase account writes + reconcile. Worker instantiation + API `status`/`seal`/`unseal` in step 5.
 5. **Build step 5 — done**: submit guard + S2 pass, browser image + N4 pass, per-job allowlist. N5 assertion with step-6 worker tests.
 6. **Build step 6 — DONE (end-to-end verified live).** Full stack works: worker → api → browser (CDP relay) → mock ATS → Ollama; agent fills + parks without submitting, reasoning captured as step events, job → `ready_for_review`. Networking: `backend` internal + a separate `lan` network gives the worker its Ollama route (ai.siggy-lab.org → 192.168.50.76 via `extra_hosts`).
-7. **Next**: N5 (browser blocked from LAN), then step 7 account flow (signup/verify/reconcile + vault).
+7. **Next**: step 7 account flow (signup/verify/reconcile + vault). N1–N6 + S1/S2 safety gate is fully green.
