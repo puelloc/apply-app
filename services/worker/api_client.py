@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import urllib.parse
+
 import httpx
 
 
@@ -34,3 +36,18 @@ class ApiClient:
 
     def set_state(self, job_id: int, state: str) -> None:
         self._post(f"/jobs/{job_id}/state", {"state": state}).raise_for_status()
+
+    def create_account(self, alias: str, site: str) -> None:
+        self._post("/accounts", {"alias": alias, "site": site}).raise_for_status()
+
+    def get_account(self, alias: str) -> dict | None:
+        path = urllib.parse.quote(alias, safe="")
+        r = httpx.get(self._url(f"/accounts/{path}"), headers=self._headers, timeout=15)
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json()
+
+    def confirm_account(self, alias: str) -> None:
+        path = urllib.parse.quote(alias, safe="")
+        self._post(f"/accounts/{path}/confirm").raise_for_status()
