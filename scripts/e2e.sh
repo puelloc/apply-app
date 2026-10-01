@@ -21,6 +21,9 @@ printf '%s' "$(cat secrets/worker_api_token.txt)" | sha256sum | awk '{print $1}'
 [ -s secrets/imap_user.txt ] || echo "canary@example.invalid" > secrets/imap_user.txt
 [ -s secrets/imap_pass.txt ] || echo "CANARY-imap-pass" > secrets/imap_pass.txt
 
+# 0. Reset state: remove containers + volumes so the e2e starts from a clean slate (no job backlog).
+docker compose down -v >/dev/null 2>&1 || true
+
 # 2. Compose up (test profile adds mock-ats). Exclude `mcp` (its image lands in step 9).
 echo "Starting the stack (test profile) ..."
 docker compose --profile test up -d --build api worker browser egress-proxy mock-ats
