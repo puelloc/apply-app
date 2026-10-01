@@ -26,10 +26,6 @@ services:
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [backend, proxy]
-    # Route to the Ollama box for `doctor`'s reachability check.
-    extra_hosts:
-      - "ai.siggy-lab.org:192.168.50.76"
-      - "siggy-lab.org:192.168.50.76"
     volumes:
       - db:/data/db
       - artifacts:/data/artifacts
@@ -66,8 +62,8 @@ services:
     image: apply-app/worker:dev
     <<: *service-common
     profiles: [dev, test, prod]
-    networks: [backend, browser_net]
-    # The backend network is internal; this is the "route to the Ollama box" the plan calls for.
+    networks: [backend, browser_net, lan]
+    # The `lan` network gives the worker its route to the Ollama box (ai.siggy-lab.org).
     extra_hosts:
       - "ai.siggy-lab.org:192.168.50.76"
       - "siggy-lab.org:192.168.50.76"
@@ -159,10 +155,12 @@ services:
       - artifacts:/artifacts:ro
 
 networks:
-  # Not internal on purpose: the worker needs a route to the Ollama box (ai.siggy-lab.org) via
-  # extra_hosts. Docker's internal:true removes the bridge gateway, so extra_hosts alone can't reach
-  # the LAN. The browser remains isolated behind the egress proxy (browser_net stays internal).
-  backend: {}
+  # Internal: api, mcp, worker. The worker reaches Ollama via the separate `lan` network, not here.
+  backend:
+    internal: true
+  # The worker's route to the Ollama box (ai.siggy-lab.org). Non-internal on purpose: internal
+  # networks have no gateway, so extra_hosts alone can't reach the LAN.
+  lan: {}
   # Internal: worker, browser, egress-proxy. The worker listens on nothing here.
   browser_net:
     internal: true
