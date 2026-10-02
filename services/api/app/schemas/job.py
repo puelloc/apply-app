@@ -19,6 +19,7 @@ class JobCreate(BaseModel):
     resume_version: str | None = None
     idempotency_key: str | None = None
     requires_account: bool = False
+    requires_verification: bool = True
 
 
 class JobRead(BaseModel):
@@ -36,6 +37,7 @@ class JobRead(BaseModel):
     resume_version: str | None
     error_code: str | None
     requires_account: bool
+    requires_verification: bool
     created_at: datetime
     updated_at: datetime
 

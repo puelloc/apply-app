@@ -32,7 +32,7 @@ class InvalidTransition(ValueError):
 # user-initiated actions like cancel/retry). The worker sets state as the pipeline progresses.
 PIPELINE_TRANSITIONS: dict[str, frozenset[str]] = {
     "queued": frozenset({"running"}),
-    "running": frozenset({"awaiting_email", "ready_for_review", "failed", "needs_human"}),
+    "running": frozenset({"awaiting_email", "account_created", "ready_for_review", "failed", "needs_human"}),
     "awaiting_email": frozenset({"account_created", "failed", "needs_human"}),
     "account_created": frozenset({"ready_for_review", "failed", "needs_human"}),
     "ready_for_review": frozenset({"submitted", "failed", "needs_human"}),

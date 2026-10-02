@@ -44,24 +44,25 @@ async def run_account_flow(api, vault, job, llm, run_agent, fill_and_park, poll_
 
     # 1. signup: pending account + password fsynced to the vault.
     info = signup(api, vault, job["id"], base_email, adapter)
-    api.set_state(job["id"], "awaiting_email")
 
     # 2. fill the signup form.
     signup_url = os.environ.get("SIGNUP_URL") or (job.get("application_url") or job.get("listing_url"))
     await run_agent(_signup_task(signup_url, info["alias"], info["password"]), adapter)
 
-    # 3. verify: poll IMAP for the verification link.
-    if poll_fn is None:
-        poll_fn = imap_poll_fn()
-    url = verify(poll_fn, info["alias"], timeout_s=float(os.environ.get("IMAP_TIMEOUT", "300")))
-    if not url:
-        api.set_state(job["id"], "failed")
-        return
+    # 3. verify (only when the site requires email verification).
+    if job.get("requires_verification", True):
+        api.set_state(job["id"], "awaiting_email")
+        if poll_fn is None:
+            poll_fn = imap_poll_fn()
+        url = verify(poll_fn, info["alias"], timeout_s=float(os.environ.get("IMAP_TIMEOUT", "300")))
+        if not url:
+            api.set_state(job["id"], "failed")
+            return
+        await run_agent(_verify_task(url), adapter)
 
-    # 4. click the verification link + confirm.
-    await run_agent(_verify_task(url), adapter)
+    # confirmed either way: after the verify click, or right after signup when no verification.
     confirm(api, info["alias"])
-    api.set_state(job["id"], "account_created")
 
-    # 5. fill the application form -> park.
+    # 4. account is ready; fill the application form -> park.
+    api.set_state(job["id"], "account_created")
     await fill_and_park()

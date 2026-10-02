@@ -36,3 +36,6 @@ class Job(TimestampMixin, Base):
     # True = the site requires an account (signup/login -> verify -> apply). False (default) = quick
     # apply, no account. Set explicitly at intake, or derived from the ATS default.
     requires_account: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    # True (default) = the signup needs email verification (IMAP). False = signup then apply directly
+    # (no verification email). Only meaningful when requires_account is true.
+    requires_verification: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")

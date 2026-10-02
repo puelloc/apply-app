@@ -76,6 +76,28 @@ class TestRunAccountFlow(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(api.states, ["awaiting_email", "failed"])
 
+    async def test_no_verification_skips_imap(self):
+        os.environ["BASE_EMAIL"] = "jobs@x.com"
+        api = FakeApi()
+        vault = FakeVault()
+        job = {"id": 1, "ats": "taleo", "application_url": "http://x", "requires_verification": False}
+        calls = []
+
+        async def run_agent(task, adapter):
+            calls.append(("run_agent",))
+            return _Result()
+
+        async def fill_and_park():
+            calls.append(("fill_and_park",))
+            api.set_state(1, "ready_for_review")
+
+        await account_pipeline.run_account_flow(api, vault, job, None, run_agent, fill_and_park, poll_fn=lambda a: None)
+
+        alias = alias_for("jobs@x.com", token_for(1))
+        self.assertEqual(api.accounts[alias], "confirmed")
+        self.assertEqual(api.states, ["account_created", "ready_for_review"])
+        self.assertEqual([c[0] for c in calls], ["run_agent", "fill_and_park"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
