@@ -30,6 +30,10 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends /tmp/kasmvnc.deb; \
     rm -rf /var/lib/apt/lists/* /tmp/kasmvnc.deb
 
+# KasmVNC user: kasmvncserver refuses to run without a user with write access (interactive prompt).
+# Home on /tmp so it stays writable under the read-only rootfs.
+RUN useradd -m -d /tmp/kasm-user -s /bin/bash kasm-user
+
 # Pin playwright exactly (rule 10). --with-deps installs Chromium's system libraries via apt.
 RUN python3 -m venv /venv \
  && /venv/bin/pip install --no-cache-dir "playwright==1.58.0" \

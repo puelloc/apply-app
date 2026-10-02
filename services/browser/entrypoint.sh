@@ -3,9 +3,10 @@
 # worker can reach Chromium's loopback CDP over the browser_net.
 set -e
 
-# KasmVNC starts its own Xvfb on :99 and serves the review web UI on 8443 (password/auth is step 9).
-# VERIFY the exact invocation on the Pi (this is the first-build check).
-kasmvncserver :99 -geometry 1920x1080 -depth 24 -noauth >/tmp/kasmvnc.log 2>&1 &
+# KasmVNC starts its own Xvfb on :99 and serves the review web UI on 8443. Grant kasm-user write
+# access + a default password (auth is replaced by NPM auth_request in step 9), then start it.
+echo -e 'kasm\nkasm\n' | kasmvncpasswd -u kasm-user -w >/dev/null 2>&1 || true
+kasmvncserver :99 -geometry 1920x1080 -depth 24 >/tmp/kasmvnc.log 2>&1 &
 KASMVNC_PID=$!
 
 CHROME=$(python3 - <<'EOF'
