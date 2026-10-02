@@ -1,11 +1,12 @@
 #!/bin/sh
-# Start Xvfb + headed Chromium, then run the CDP relay so the worker can reach Chromium's loopback
-# CDP over the browser_net (Chrome 136+ rejects non-localhost Host headers and reports a 127.0.0.1
-# WebSocket URL — the relay rewrites both).
+# Start KasmVNC (headed display + review viewing) + headed Chromium, then run the CDP relay so the
+# worker can reach Chromium's loopback CDP over the browser_net.
 set -e
 
-Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
-XVFB_PID=$!
+# KasmVNC starts its own Xvfb on :99 and serves the review web UI on 8443 (password/auth is step 9).
+# VERIFY the exact invocation on the Pi (this is the first-build check).
+kasmvncserver :99 -geometry 1920x1080 -depth 24 -noauth >/tmp/kasmvnc.log 2>&1 &
+KASMVNC_PID=$!
 
 CHROME=$(python3 - <<'EOF'
 from playwright.sync_api import sync_playwright

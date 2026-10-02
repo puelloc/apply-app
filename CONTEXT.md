@@ -152,7 +152,7 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 | 5 browser + submit guard + allowlist | done |
 | 6 worker + agent + reasoning | done (end-to-end live) |
 | 7 account flow | done (7c + 7e live) |
-| **8 review UI + KasmVNC** | **next** |
+| **8 review UI + KasmVNC** | **in progress** (8a: fill_summary/approve/review endpoints; 8b: review-link token + KasmVNC first version) |
 | 9 MCP · 10 eval · 11 backup | pending |
 
 **Next:** step 8 — the review flow (field diff + artifacts, approve/edit-and-rerun, the short-lived

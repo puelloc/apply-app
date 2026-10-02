@@ -1,4 +1,4 @@
-"""Review endpoints: field diff, approve, and the worker writing the fill summary."""
+"""Review endpoints: field diff, approve, the worker writing the fill summary, and the review link."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_session
 from ..models import Job
+from ..review_link import generate_token
 from ..schemas.job import JobRead
 from ..schemas.review import FillSummaryWrite, ReviewResponse
 from ..security import require_scope
@@ -57,3 +58,18 @@ def approve(
     session.commit()
     session.refresh(job)
     return job
+
+
+@router.get("/jobs/{job_id}/review-link")
+def review_link(
+    job_id: int,
+    session: Session = Depends(get_session),
+    _scope: str = Depends(require_scope("diagnose")),
+) -> dict:
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    if job.state != "ready_for_review":
+        raise HTTPException(status_code=400, detail=f"no review link for state {job.state!r}")
+    token, expiry = generate_token(job_id)
+    return {"url": f"https://jobs-review.siggy-lab.org/?token={token}", "expires_at": expiry}
