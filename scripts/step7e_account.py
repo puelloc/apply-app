@@ -47,6 +47,9 @@ class FakeApi:
     def set_state(self, job_id, state):
         self.states.append(state)
 
+    def add_step_event(self, job_id, payload):
+        pass  # step-event capture is a no-op in this spike (no real API)
+
 
 def serve() -> None:
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(FIXTURES))
