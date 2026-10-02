@@ -15,14 +15,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       openbox \
     && rm -rf /var/lib/apt/lists/*
 
-# KasmVNC (review viewing). The .deb URL is the KasmVNC GitHub release; VERIFY the exact tag/arch on
-# the Pi before relying on it (first build is the check).
+# KasmVNC (review viewing). Version + sha256 pinned (rule 10); the .deb is the KasmVNC GitHub release.
 ARG TARGETARCH
-ARG KASMVNC_VERSION=1.3.3
-RUN apt-get update \
- && curl -fsSL "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_bookworm_${KASMVNC_VERSION}_${TARGETARCH}.deb" -o /tmp/kasmvnc.deb \
- && apt-get install -y --no-install-recommends /tmp/kasmvnc.deb \
- && rm -rf /var/lib/apt/lists/* /tmp/kasmvnc.deb
+ARG KASMVNC_VERSION=1.5.0
+RUN set -eux; \
+    case "$TARGETARCH" in \
+      amd64) SUM="770fd3df51510beecc89666879d82faf411276e68c6e11df612f736b891b5f71" ;; \
+      arm64) SUM="aa83a1a6c9069d1a02239988b07a3a2a082a433042b4d4ee2b9e9f6b2df9643c" ;; \
+      *) echo "unsupported arch $TARGETARCH"; exit 1 ;; \
+    esac; \
+    apt-get update; \
+    curl -fsSL "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_bookworm_${KASMVNC_VERSION}_${TARGETARCH}.deb" -o /tmp/kasmvnc.deb; \
+    echo "$SUM  /tmp/kasmvnc.deb" | sha256sum -c -; \
+    apt-get install -y --no-install-recommends /tmp/kasmvnc.deb; \
+    rm -rf /var/lib/apt/lists/* /tmp/kasmvnc.deb
 
 # Pin playwright exactly (rule 10). --with-deps installs Chromium's system libraries via apt.
 RUN python3 -m venv /venv \
