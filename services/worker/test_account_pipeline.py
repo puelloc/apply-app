@@ -44,7 +44,7 @@ class TestRunAccountFlow(unittest.IsolatedAsyncioTestCase):
         job = {"id": 1, "ats": "workday", "application_url": "http://x"}
         calls = []
 
-        async def run_agent(task, adapter):
+        async def run_agent(task, adapter, secrets=None):
             calls.append(("run_agent", task, adapter))
             return _Result()
 
@@ -66,7 +66,7 @@ class TestRunAccountFlow(unittest.IsolatedAsyncioTestCase):
         vault = FakeVault()
         job = {"id": 1, "ats": "workday", "application_url": "http://x"}
 
-        async def run_agent(task, adapter):
+        async def run_agent(task, adapter, secrets=None):
             return _Result()
 
         async def fill_and_park():
@@ -83,7 +83,7 @@ class TestRunAccountFlow(unittest.IsolatedAsyncioTestCase):
         job = {"id": 1, "ats": "taleo", "application_url": "http://x", "requires_verification": False}
         calls = []
 
-        async def run_agent(task, adapter):
+        async def run_agent(task, adapter, secrets=None):
             calls.append(("run_agent",))
             return _Result()
 

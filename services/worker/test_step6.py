@@ -41,6 +41,15 @@ class TestReasoning(unittest.TestCase):
         self.assertEqual(payload["postcondition"], "fail")
         self.assertEqual(payload["error_code"], "selector_missing")
 
+    def test_redacts_secrets_from_reasoning(self):
+        payload = agent_step_to_payload(
+            "greenhouse", "r",
+            {"step": 1, "action": "input", "memory": "Password=secret123", "next_goal": "fill secret123", "eval": None},
+            secrets=["secret123"],
+        )
+        self.assertEqual(payload["model_meta"]["memory"], "Password=[REDACTED]")
+        self.assertEqual(payload["model_meta"]["next_goal"], "fill [REDACTED]")
+
 
 class _FakeAction:
     def model_dump(self, exclude_unset=True):

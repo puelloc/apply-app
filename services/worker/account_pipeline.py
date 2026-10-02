@@ -45,9 +45,9 @@ async def run_account_flow(api, vault, job, llm, run_agent, fill_and_park, poll_
     # 1. signup: pending account + password fsynced to the vault.
     info = signup(api, vault, job["id"], base_email, adapter)
 
-    # 2. fill the signup form.
+    # 2. fill the signup form (redact the password from captured reasoning).
     signup_url = os.environ.get("SIGNUP_URL") or (job.get("application_url") or job.get("listing_url"))
-    await run_agent(_signup_task(signup_url, info["alias"], info["password"]), adapter)
+    await run_agent(_signup_task(signup_url, info["alias"], info["password"]), adapter, secrets=[info["password"]])
 
     # 3. verify (only when the site requires email verification).
     if job.get("requires_verification", True):

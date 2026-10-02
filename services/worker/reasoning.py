@@ -11,8 +11,24 @@ from __future__ import annotations
 from typing import Any
 
 
-def agent_step_to_payload(adapter: str, run_id: str, step: dict[str, Any]) -> dict[str, Any]:
+def redact_values(text: str | None, values: list[str] | None) -> str | None:
+    """Replace each secret value in `text` with `[REDACTED]` (so passwords never reach step events)."""
+    if text is None:
+        return None
+    for value in values or []:
+        if value:
+            text = text.replace(value, "[REDACTED]")
+    return text
+
+
+def agent_step_to_payload(adapter: str, run_id: str, step: dict[str, Any], secrets: list[str] | None = None) -> dict[str, Any]:
     """Map a canonical agent step to the step-event payload (the API's StepEventCreate contract)."""
+    model_meta = {
+        "eval": redact_values(step.get("eval"), secrets),
+        "memory": redact_values(step.get("memory"), secrets),
+        "next_goal": redact_values(step.get("next_goal"), secrets),
+        "url": step.get("url"),
+    }
     return {
         "run_id": run_id,
         "step": f"agent-{step['step']}",
@@ -21,12 +37,7 @@ def agent_step_to_payload(adapter: str, run_id: str, step: dict[str, Any]) -> di
         "postcondition": "fail" if step.get("error") else "pass",
         "duration_ms": step.get("duration_ms"),
         "error_code": step.get("error_code"),
-        "model_meta": {
-            "eval": step.get("eval"),
-            "memory": step.get("memory"),
-            "next_goal": step.get("next_goal"),
-            "url": step.get("url"),
-        },
+        "model_meta": model_meta,
     }
 
 

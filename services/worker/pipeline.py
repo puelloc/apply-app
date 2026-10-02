@@ -67,7 +67,7 @@ def build_task(job: dict) -> str:
     )
 
 
-async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str):
+async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str, secrets: list[str] | None = None):
     """Run one browser-use agent against `task`, capturing reasoning as step events."""
     run_id = uuid.uuid4().hex[:16]
     session = make_session()
@@ -77,7 +77,7 @@ async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str):
 
         def on_step(browser_state, model_output, step_number) -> None:
             payload = agent_step_to_payload(
-                adapter, run_id, from_browser_use_step(browser_state, model_output, step_number)
+                adapter, run_id, from_browser_use_step(browser_state, model_output, step_number), secrets
             )
             api.add_step_event(job["id"], payload)
 
@@ -104,8 +104,8 @@ async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
 async def run_job(api, vault, job: dict, llm: ChatOllama) -> None:
     """Dispatch to the right application path (quick-apply vs account-required)."""
     if job.get("requires_account") or requires_account(job.get("ats")):
-        async def run_agent(task, adapter):
-            return await _run_agent(api, job, llm, task, adapter)
+        async def run_agent(task, adapter, secrets=None):
+            return await _run_agent(api, job, llm, task, adapter, secrets)
 
         async def fill_and_park():
             await _fill_and_park(api, job, llm)
