@@ -17,6 +17,7 @@ from browser_use.llm import ChatOllama
 
 from account_pipeline import run_account_flow
 from adapters import requires_account
+from answers import build_fill_summary, build_task
 from reasoning import agent_step_to_payload, from_browser_use_step
 
 MODEL = os.environ.get("QWEN38_TAG", "qwen38-q3-64k:latest")
@@ -57,16 +58,6 @@ async def inject_guard(session: BrowserSession) -> None:
     await session._cdp_add_init_script(GUARD)
 
 
-def build_task(job: dict) -> str:
-    # TODO(step 8): build the fill task from the job's profile/answers + the adapter's fields.
-    # Steps 6/7 use fixed CANARY values so the run is self-contained (no profile yet).
-    url = job.get("application_url") or job.get("listing_url")
-    return (
-        f"Open the application form at {url}. Fill first name CANARY-First, last name CANARY-Last, "
-        "email canary@example.invalid, phone 555-0001. Then STOP. Do NOT click the Submit button."
-    )
-
-
 async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str, secrets: list[str] | None = None):
     """Run one browser-use agent against `task`, capturing reasoning as step events."""
     run_id = uuid.uuid4().hex[:16]
@@ -93,19 +84,6 @@ async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str, s
         return await agent.run()
     finally:
         await session.stop()
-
-
-def build_fill_summary(job: dict) -> dict:
-    # TODO(step 8): extract the actual filled values from the parked page; for now the frozen
-    # CANARY answers used in build_task.
-    return {
-        "fields": [
-            {"name": "first_name", "value": "CANARY-First", "source": "canary"},
-            {"name": "last_name", "value": "CANARY-Last", "source": "canary"},
-            {"name": "email", "value": "canary@example.invalid", "source": "canary"},
-            {"name": "phone", "value": "555-0001", "source": "canary"},
-        ]
-    }
 
 
 async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:

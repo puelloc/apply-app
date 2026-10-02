@@ -85,6 +85,20 @@ class TestJobsApi(unittest.TestCase):
         self.assertTrue(self.client.post(f"/jobs/{jid}/approve").json()["approved"])
         self.assertFalse(self.client.get(f"/jobs/{jid}/review").json()["ready_to_approve"])
 
+    def test_answer_overrides_and_restage(self):
+        jid = self.client.post("/jobs", json=JOB).json()["id"]
+        self.client.post(f"/jobs/{jid}/answers", json={"answers": {"email": "new@x.com"}})
+        self.assertEqual(self.client.get(f"/jobs/{jid}").json()["answer_overrides"], {"email": "new@x.com"})
+        # merge a second override
+        self.client.post(f"/jobs/{jid}/answers", json={"answers": {"phone": "555-9999"}})
+        self.assertEqual(self.client.get(f"/jobs/{jid}").json()["answer_overrides"], {"email": "new@x.com", "phone": "555-9999"})
+        # restage -> restaging, then the worker (lease acquire) picks it up
+        self._set_state(jid, "ready_for_review")
+        self.assertEqual(self.client.post(f"/jobs/{jid}/actions", json={"action": "restage"}).json()["state"], "restaging")
+        lease = self.client.post("/leases/acquire")
+        self.assertEqual(lease.status_code, 200)
+        self.assertEqual(lease.json()["job"]["id"], jid)
+
     def test_bulk_create(self):
         r = self.client.post("/jobs/bulk", json=[JOB, {**JOB, "title": "Other"}])
         self.assertEqual(r.json()["total"], 2)

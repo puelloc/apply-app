@@ -64,8 +64,10 @@ def _lease_by_job(session: Session, job_id: int) -> Lease | None:
 
 
 def acquire(session: Session) -> tuple[Job, str, datetime] | None:
-    """Lease the oldest queued job; returns (job, token, expires_at) or None when the queue is empty."""
-    job = session.execute(select(Job).where(Job.state == "queued").order_by(Job.id).limit(1)).scalar_one_or_none()
+    """Lease the oldest queued or restaging job; returns (job, token, expires_at) or None when empty."""
+    job = session.execute(
+        select(Job).where(Job.state.in_(("queued", "restaging"))).order_by(Job.id).limit(1)
+    ).scalar_one_or_none()
     if job is None:
         return None
     token = secrets.token_urlsafe(16)

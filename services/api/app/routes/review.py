@@ -9,7 +9,7 @@ from ..deps import get_session
 from ..models import Job
 from ..review_link import generate_token
 from ..schemas.job import JobRead
-from ..schemas.review import FillSummaryWrite, ReviewResponse
+from ..schemas.review import AnswersUpdate, FillSummaryWrite, ReviewResponse
 from ..security import require_scope
 
 router = APIRouter(tags=["review"])
@@ -73,3 +73,20 @@ def review_link(
         raise HTTPException(status_code=400, detail=f"no review link for state {job.state!r}")
     token, expiry = generate_token(job_id)
     return {"url": f"https://jobs-review.siggy-lab.org/?token={token}", "expires_at": expiry}
+
+
+@router.post("/jobs/{job_id}/answers", response_model=JobRead)
+def update_answers(
+    job_id: int,
+    payload: AnswersUpdate,
+    session: Session = Depends(get_session),
+    _scope: str = Depends(require_scope("ops")),
+) -> Job:
+    """Set per-job answer overrides (edit-and-rerun). Never a profile change."""
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    job.answer_overrides = {**(job.answer_overrides or {}), **payload.answers}
+    session.commit()
+    session.refresh(job)
+    return job

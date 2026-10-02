@@ -42,5 +42,8 @@ class Job(TimestampMixin, Base):
     # Frozen answers: the field diff saved on the first run (value/source/confidence/flags). Re-staging
     # replays these and never regenerates them.
     fill_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Per-job answer overrides (edit-and-rerun): {field: new_value}, merged over the frozen answers.
+    # Never a profile/answer-policy change.
+    answer_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # True once the user has reviewed and picked this job (approve NEVER submits).
     approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")

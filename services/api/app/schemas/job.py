@@ -39,6 +39,7 @@ class JobRead(BaseModel):
     requires_account: bool
     requires_verification: bool
     fill_summary: dict[str, Any] | None
+    answer_overrides: dict[str, Any] | None
     approved: bool
     created_at: datetime
     updated_at: datetime
