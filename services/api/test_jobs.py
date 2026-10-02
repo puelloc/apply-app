@@ -74,6 +74,17 @@ class TestJobsApi(unittest.TestCase):
         jid2 = self.client.post("/jobs", json={**JOB, "requires_account": True}).json()["id"]
         self.assertTrue(self.client.get(f"/jobs/{jid2}").json()["requires_account"])
 
+    def test_review_fill_summary_and_approve(self):
+        jid = self.client.post("/jobs", json=JOB).json()["id"]
+        self._set_state(jid, "ready_for_review")
+        summary = {"fields": [{"name": "email", "value": "x@y.com", "source": "canary"}]}
+        self.assertEqual(self.client.post(f"/jobs/{jid}/fill-summary", json={"fill_summary": summary}).json()["fill_summary"], summary)
+        rv = self.client.get(f"/jobs/{jid}/review").json()
+        self.assertTrue(rv["ready_to_approve"])
+        self.assertEqual(rv["job"]["fill_summary"], summary)
+        self.assertTrue(self.client.post(f"/jobs/{jid}/approve").json()["approved"])
+        self.assertFalse(self.client.get(f"/jobs/{jid}/review").json()["ready_to_approve"])
+
     def test_bulk_create(self):
         r = self.client.post("/jobs/bulk", json=[JOB, {**JOB, "title": "Other"}])
         self.assertEqual(r.json()["total"], 2)

@@ -51,3 +51,6 @@ class ApiClient:
     def confirm_account(self, alias: str) -> None:
         path = urllib.parse.quote(alias, safe="")
         self._post(f"/accounts/{path}/confirm").raise_for_status()
+
+    def set_fill_summary(self, job_id: int, summary: dict) -> None:
+        self._post(f"/jobs/{job_id}/fill-summary", {"fill_summary": summary}).raise_for_status()

@@ -95,10 +95,26 @@ async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str, s
         await session.stop()
 
 
+def build_fill_summary(job: dict) -> dict:
+    # TODO(step 8): extract the actual filled values from the parked page; for now the frozen
+    # CANARY answers used in build_task.
+    return {
+        "fields": [
+            {"name": "first_name", "value": "CANARY-First", "source": "canary"},
+            {"name": "last_name", "value": "CANARY-Last", "source": "canary"},
+            {"name": "email", "value": "canary@example.invalid", "source": "canary"},
+            {"name": "phone", "value": "555-0001", "source": "canary"},
+        ]
+    }
+
+
 async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
     result = await _run_agent(api, job, llm, build_task(job), job.get("ats") or "unknown")
-    # Park only on a true success; otherwise mark failed.
-    api.set_state(job["id"], "ready_for_review" if result.is_successful() is True else "failed")
+    if result.is_successful() is True:
+        api.set_fill_summary(job["id"], build_fill_summary(job))
+        api.set_state(job["id"], "ready_for_review")
+    else:
+        api.set_state(job["id"], "failed")
 
 
 async def run_job(api, vault, job: dict, llm: ChatOllama) -> None:

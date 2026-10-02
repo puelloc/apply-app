@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .db import Database
-from .routes import accounts, doctor, events, jobs, leases
+from .routes import accounts, doctor, events, jobs, leases, review
 from .security import load_token_hashes
 
 
@@ -25,6 +25,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
     app.include_router(doctor.router)
     app.include_router(events.router)
     app.include_router(accounts.router)
+    app.include_router(review.router)
 
     @app.get("/health")
     def health() -> dict[str, str]:

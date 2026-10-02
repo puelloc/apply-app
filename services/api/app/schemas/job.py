@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -38,6 +38,8 @@ class JobRead(BaseModel):
     error_code: str | None
     requires_account: bool
     requires_verification: bool
+    fill_summary: dict[str, Any] | None
+    approved: bool
     created_at: datetime
     updated_at: datetime
 

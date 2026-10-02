@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, String, Text
+from sqlalchemy import JSON, Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -39,3 +39,8 @@ class Job(TimestampMixin, Base):
     # True (default) = the signup needs email verification (IMAP). False = signup then apply directly
     # (no verification email). Only meaningful when requires_account is true.
     requires_verification: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+    # Frozen answers: the field diff saved on the first run (value/source/confidence/flags). Re-staging
+    # replays these and never regenerates them.
+    fill_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # True once the user has reviewed and picked this job (approve NEVER submits).
+    approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
