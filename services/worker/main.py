@@ -22,7 +22,7 @@ async def main() -> None:
     else:
         print("vault sealed (set VAULT_PASSPHRASE to unseal)")
 
-    await run_loop()
+    await run_loop(vault)
 
 
 if __name__ == "__main__":

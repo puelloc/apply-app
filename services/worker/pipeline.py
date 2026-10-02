@@ -1,8 +1,8 @@
 """Run one job: acquire -> fill via browser-use (with submit guard) -> record reasoning -> release.
 
 Uses browser-use 0.13.10's verified API (see scripts/spikes/p4_browseruse.py). The submit guard is
-injected via `_cdp_add_init_script` (browser-use injects per-document scripts through CDP for both
-local and remote sessions); each step's reasoning is captured via `register_new_step_callback`.
+injected via `_cdp_add_init_script`; each step's reasoning is captured via `register_new_step_callback`.
+Two application paths: quick-apply (`_fill_and_park`) and account-required (`account_pipeline`).
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from pathlib import Path
 from browser_use import Agent, BrowserProfile, BrowserSession
 from browser_use.llm import ChatOllama
 
+from account_pipeline import run_account_flow
 from adapters import requires_account
 from reasoning import agent_step_to_payload, from_browser_use_step
 
@@ -57,8 +58,8 @@ async def inject_guard(session: BrowserSession) -> None:
 
 
 def build_task(job: dict) -> str:
-    # TODO(step 7): build the fill task from the job's profile/answers + the adapter's fields.
-    # Step 6d uses fixed CANARY values so the end-to-end run is self-contained (no profile yet).
+    # TODO(step 8): build the fill task from the job's profile/answers + the adapter's fields.
+    # Steps 6/7 use fixed CANARY values so the run is self-contained (no profile yet).
     url = job.get("application_url") or job.get("listing_url")
     return (
         f"Open the application form at {url}. Fill first name CANARY-First, last name CANARY-Last, "
@@ -66,9 +67,9 @@ def build_task(job: dict) -> str:
     )
 
 
-async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
+async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str):
+    """Run one browser-use agent against `task`, capturing reasoning as step events."""
     run_id = uuid.uuid4().hex[:16]
-    adapter = job.get("ats") or "unknown"
     session = make_session()
     await session.start()
     try:
@@ -81,7 +82,7 @@ async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
             api.add_step_event(job["id"], payload)
 
         agent = Agent(
-            task=build_task(job),
+            task=task,
             llm=llm,
             browser_session=session,
             use_vision=False,
@@ -89,29 +90,38 @@ async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
             max_failures=2,
             register_new_step_callback=on_step,
         )
-        result = await agent.run()
-        # Park only on a true success; otherwise mark failed (a stopped-with-error agent is not reviewable).
-        api.set_state(job["id"], "ready_for_review" if result.is_successful() is True else "failed")
+        return await agent.run()
     finally:
         await session.stop()
 
 
-async def run_job(api, job: dict, llm: ChatOllama) -> None:
+async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
+    result = await _run_agent(api, job, llm, build_task(job), job.get("ats") or "unknown")
+    # Park only on a true success; otherwise mark failed.
+    api.set_state(job["id"], "ready_for_review" if result.is_successful() is True else "failed")
+
+
+async def run_job(api, vault, job: dict, llm: ChatOllama) -> None:
     """Dispatch to the right application path (quick-apply vs account-required)."""
     if job.get("requires_account") or requires_account(job.get("ats")):
-        # Account path (step 7c): signup/login -> verify -> confirm -> apply.
-        api.set_state(job["id"], "awaiting_email")
-        return
-    await _fill_and_park(api, job, llm)
+        async def run_agent(task, adapter):
+            return await _run_agent(api, job, llm, task, adapter)
+
+        async def fill_and_park():
+            await _fill_and_park(api, job, llm)
+
+        await run_account_flow(api, vault, job, llm, run_agent, fill_and_park)
+    else:
+        await _fill_and_park(api, job, llm)
 
 
-async def run_once(api, llm: ChatOllama) -> bool:
+async def run_once(api, vault, llm: ChatOllama) -> bool:
     lease = api.acquire()
     if lease is None:
         return False
     job = lease["job"]
     try:
-        await run_job(api, job, llm)
+        await run_job(api, vault, job, llm)
     except Exception:
         # A failed run must not leave the job stuck in `running`.
         try:
@@ -124,9 +134,7 @@ async def run_once(api, llm: ChatOllama) -> bool:
     return True
 
 
-async def main() -> None:
-    from pathlib import Path
-
+async def main(vault) -> None:
     from api_client import ApiClient
 
     token = os.environ.get("WORKER_API_TOKEN") or Path("/run/secrets/worker_api_token").read_text().strip()
@@ -134,7 +142,7 @@ async def main() -> None:
     llm = make_llm()
     while True:
         try:
-            if not await run_once(api, llm):
+            if not await run_once(api, vault, llm):
                 await asyncio.sleep(5)
         except Exception as exc:  # noqa: BLE001
             print(f"job error: {type(exc).__name__}: {exc}")
@@ -142,4 +150,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(None))
