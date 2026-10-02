@@ -43,8 +43,8 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 
 - Git: `https://github.com/puelloc/apply-app.git` (branch `main`). Push/pull from the agent sandbox at
   `/Users/cris/Projects/jobs/apply-app` and from the Pi at `~/Projects/apply-app`.
-- Layout: `compose.yaml` (skeleton) · `docs/` · `scripts/spikes/` (step-0 spikes) · `scripts/` (ops
-  scripts) · `tests/`.
+- Layout: `compose.yaml` · `docs/` (PLAN.md source of truth) · `services/` (`api`, `worker`, `browser`,
+  `egress-proxy`, `mock-ats`) · `scripts/` (ops + spike drivers) · `tests/` (unit tests per service).
 
 ## Known hosts / services (domain `siggy-lab.org`, all internal-only via local DNS)
 
@@ -104,22 +104,57 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
   `fallback_to_agent` does **not** recover from "No selector available". Mitigation: per-ATS adapters +
   the full browser-use `Agent` as the fallback path (see Decision log).
 - Docker build/pip is slow on SD; keep Docker on the SSD.
+- **Chrome 145 removed `--remote-debugging-address`** → CDP only binds `127.0.0.1` and rejects
+  non-`localhost` `Host` headers (HTTP 500). The browser service runs `cdp_relay.py`, which rewrites
+  `Host`, rewrites `webSocketDebuggerUrl` (`127.0.0.1:9221` → `browser:9222`), and tunnels the WebSocket.
+  It must handle chunked + connection-close response bodies, not just `Content-Length`, and must not
+  double the `\r\n\r\n` when rewriting the request. (Locally regression-tested: `test_cdp_relay.py`,
+  `test_ws_tunnel.py`.)
+- **`internal: true` Docker networks have no gateway** — `extra_hosts` (DNS) alone can't reach the LAN.
+  The worker gets a separate non-internal `lan` network for its Ollama route
+  (`ai.siggy-lab.org → 192.168.50.76` via `extra_hosts`); `backend` stays internal. (Making `backend`
+  non-internal broke the api↔worker DNS — don't.)
+- **Playwright's sync API can't run inside asyncio** — resolve `EXECUTABLE_PATH = _chromium_path()` at
+  module import time, before `asyncio.run`.
+- **Docker `COPY alembic/ ./` (trailing slash) flattens the dir** into the destination — use
+  `COPY alembic/ ./alembic/`.
+- Chromium leaves a **`SingletonLock`** in the profile volume after a force-kill (`docker compose down`)
+  — the browser entrypoint `rm -f`'s it at startup (single-instance, safe).
+- browser-use 0.13.10 specifics: connect via `BrowserSession(cdp_url=…)`; inject scripts via
+  `session._cdp_add_init_script(js)`; capture steps via `register_new_step_callback(browser_state,
+  model_output, step_number)`; the action name is the first key of `model_output.action[0].model_dump()`;
+  messages are `browser_use.llm.messages.UserMessage` (NOT `langchain_core`).
+- **The generated password is echoed in the agent's reasoning** and would land in
+  `StepEvent.model_meta` (returned by the step-events endpoint) → redact secrets from eval/memory/
+  next_goal before capture (`reasoning.redact_values`). browser-use's own stdout still echoes it
+  (local-only; a worker logging filter is the follow-up).
 
-## Current state (step 0 spikes)
+## Current state (steps 0–7 done)
 
-| Test | Status |
+| Test suite | Status |
 | --- | --- |
-| O1 | pass · O2 fail (Q4 headroom) → **resolved via Q3-64k** · O3/O4/O5 pass · O6 pass (domain reachable; raw-port lock skipped) |
-| P1/P2 | pass · P3 untested (manual RAM tabs) · P4 pass (headless fills; headed → KasmVNC browser container) · P5 gated |
-| W1 | pass · W2 fail (select bug) · W3 fail (fallback gap) |
-| N/D/E/S/R/L | N1/N2/N3/N6 pass; N4/N5 deferred (browser svc) · D/E/S/R/L untested |
+| O1–O6 | O1/O3/O4/O5/O6 pass · O2 resolved via Q3-64k |
+| P1–P5 | P1/P2/P4 pass · P3/P5 manual (gated) |
+| W1–W3 | W1 pass · W2/W3 fail (recorded: `select_change` bug + fallback gap) |
+| N1–N6 | **all pass** (N1/N2/N3/N6 live; N4 CDP; N5 no proxy-bypass/UDP) |
+| S1–S5 | S2 pass · S1 harness built (not yet evidenced live) · S3/S4/S5 untested |
+| D / E / R / L | untested (NPM step 9 · real IMAP step 7 · resilience step 11 · eval step 10) |
 
-## Next steps (in order)
+## Build progress
 
-1. Manual: P3 (RAM per tab in KasmVNC), P5 (gated). O6 raw-port lock skipped (trusted LAN).
-2. **Steps 1–2 done.** Step 1: networks + egress proxy (N1/N2/N3/N6 pass; N4/N5 → step 5, D → steps 3/5/9). Step 2: mock ATS fixtures + canary harness + snapshot scaffold.
-3. **Build step 3 — DONE.** API: error taxonomy, redacted JSON logging, WAL db + `/health`, models + Alembic (2 migrations), jobs/queue/leases endpoints, scoped bearer auth, `doctor`. **Debuggability requirement:** structured/searchable logs, agent reasoning captured, logs viewable via API.
-4. **Build step 4 — core done**: vault (seal/unseal, passphrase-check, encrypted persistence) + two-phase account writes + reconcile. Worker instantiation + API `status`/`seal`/`unseal` in step 5.
-5. **Build step 5 — done**: submit guard + S2 pass, browser image + N4 pass, per-job allowlist. N5 assertion with step-6 worker tests.
-6. **Build step 6 — DONE (end-to-end verified live).** Full stack works: worker → api → browser (CDP relay) → mock ATS → Ollama; agent fills + parks without submitting, reasoning captured as step events, job → `ready_for_review`. Networking: `backend` internal + a separate `lan` network gives the worker its Ollama route (ai.siggy-lab.org → 192.168.50.76 via `extra_hosts`).
-7. **Build step 7 — DONE (verified live).** Account flow: endpoints + aliases/verification/IMAP + orchestration + `requires_account`/`requires_verification` + account path wired into `run_job` + password redaction from step events. Next: step 8 review UI (+ KasmVNC).
+| Step | Status |
+| --- | --- |
+| 0 spikes (O/P/W) | done |
+| 1 networks + egress proxy | done |
+| 2 mock ATS + canary | done |
+| 3 API (schema/auth/doctor) | done |
+| 4 vault + two-phase | done |
+| 5 browser + submit guard + allowlist | done |
+| 6 worker + agent + reasoning | done (end-to-end live) |
+| 7 account flow | done (7c + 7e live) |
+| **8 review UI + KasmVNC** | **next** |
+| 9 MCP · 10 eval · 11 backup | pending |
+
+**Next:** step 8 — the review flow (field diff + artifacts, approve/edit-and-rerun, the short-lived
+KasmVNC link to watch the parked browser). Real job sites are no longer gated (N1–N6 + S1/S2 green),
+but still ask before any third-party visit.

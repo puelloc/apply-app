@@ -13,8 +13,9 @@ For a fresh-session handoff (rules, hosts, versions, gotchas, current state): **
 | Path | Purpose |
 | --- | --- |
 | `docs/PLAN.md` | The plan (verbatim) + Decision log, Verification log, Open questions, Changelog |
-| `compose.yaml` | Docker Compose skeleton: `dev` / `test` (mock ATS) / `prod` profiles, four networks, volumes, secrets |
-| `scripts/spikes/` | Step-0 spike commands (P1–P5, O1–O6, W1–W3), one copy-paste script per machine |
+| `compose.yaml` | Docker Compose: `dev` / `test` (mock ATS) / `prod` profiles, networks, volumes, secrets |
+| `services/` | The services: `api`, `worker`, `browser` (submit guard + CDP relay), `egress-proxy`, `mock-ats` |
+| `scripts/` | Ops scripts (e2e, N/S smoke tests) + step spike drivers |
 | `tests/` | Verification tests (N, S, E, R, L suites) as they are built |
 
 ## Job source
