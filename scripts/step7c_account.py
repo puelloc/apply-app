@@ -54,7 +54,7 @@ def main() -> None:
     assert vault.get(info["alias"]) == info["password"], "vault round-trip failed"
     print(f"signup: alias={info['alias']} password-in-vault=OK")
 
-    url = verify(lambda a: poll(IMAP_HOST, "user", "pass", a, timeout=5), info["alias"], timeout_s=30, interval_s=2)
+    url = verify(lambda a: poll(IMAP_HOST, "user", "pass", a, timeout=5, port=IMAP_PORT, ssl=False), info["alias"], timeout_s=30, interval_s=2)
     print(f"verify: url={url}")
 
     if url:

@@ -50,9 +50,13 @@ def extract_verification_url_from_message(message, alias: str) -> str | None:
     return find_verification_url(_body_text(message))
 
 
-def poll(host: str, user: str, password: str, alias: str, folder: str = "INBOX", timeout: int = 15) -> str | None:
-    """Return the verification URL for `alias`, or None if no matching email has arrived yet."""
-    conn = imaplib.IMAP4_SSL(host, timeout=timeout)
+def poll(host: str, user: str, password: str, alias: str, folder: str = "INBOX", timeout: int = 15, port: int | None = None, ssl: bool = True) -> str | None:
+    """Return the verification URL for `alias`, or None if no matching email has arrived yet.
+
+    Real IMAP uses `ssl=True` (port 993 default); the mock IMAP server is plaintext (`ssl=False`).
+    """
+    cls = imaplib.IMAP4_SSL if ssl else imaplib.IMAP4
+    conn = cls(host, port, timeout=timeout) if port else cls(host, timeout=timeout)
     try:
         conn.login(user, password)
         conn.select(folder)
