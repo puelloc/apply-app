@@ -54,3 +54,11 @@ class ApiClient:
 
     def set_fill_summary(self, job_id: int, summary: dict) -> None:
         self._post(f"/jobs/{job_id}/fill-summary", {"fill_summary": summary}).raise_for_status()
+
+    def get_profile(self) -> dict:
+        """Return the single-user profile (contact + resume), or {} if not set."""
+        r = httpx.get(self._url("/profile"), headers=self._headers, timeout=15)
+        if r.status_code == 404:
+            return {}
+        r.raise_for_status()
+        return r.json()

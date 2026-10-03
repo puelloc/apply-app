@@ -86,27 +86,27 @@ async def _run_agent(api, job: dict, llm: ChatOllama, task: str, adapter: str, s
         await session.stop()
 
 
-async def _fill_and_park(api, job: dict, llm: ChatOllama) -> None:
-    result = await _run_agent(api, job, llm, build_task(job), job.get("ats") or "unknown")
+async def _fill_and_park(api, job: dict, llm: ChatOllama, profile: dict | None = None) -> None:
+    result = await _run_agent(api, job, llm, build_task(job, profile), job.get("ats") or "unknown")
     if result.is_successful() is True:
-        api.set_fill_summary(job["id"], build_fill_summary(job))
+        api.set_fill_summary(job["id"], build_fill_summary(job, profile))
         api.set_state(job["id"], "ready_for_review")
     else:
         api.set_state(job["id"], "failed")
 
 
-async def run_job(api, vault, job: dict, llm: ChatOllama) -> None:
+async def run_job(api, vault, job: dict, llm: ChatOllama, profile: dict | None = None) -> None:
     """Dispatch to the right application path (quick-apply vs account-required)."""
     if job.get("requires_account") or requires_account(job.get("ats")):
         async def run_agent(task, adapter, secrets=None):
             return await _run_agent(api, job, llm, task, adapter, secrets)
 
         async def fill_and_park():
-            await _fill_and_park(api, job, llm)
+            await _fill_and_park(api, job, llm, profile)
 
         await run_account_flow(api, vault, job, llm, run_agent, fill_and_park)
     else:
-        await _fill_and_park(api, job, llm)
+        await _fill_and_park(api, job, llm, profile)
 
 
 async def run_once(api, vault, llm: ChatOllama) -> bool:
@@ -115,7 +115,8 @@ async def run_once(api, vault, llm: ChatOllama) -> bool:
         return False
     job = lease["job"]
     try:
-        await run_job(api, vault, job, llm)
+        profile = api.get_profile()
+        await run_job(api, vault, job, llm, profile)
     except Exception:
         # A failed run must not leave the job stuck in `running`.
         try:

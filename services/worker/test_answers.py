@@ -31,6 +31,20 @@ class TestAnswers(unittest.TestCase):
         job = {"application_url": "http://x", "fill_summary": None, "answer_overrides": {"first_name": "Edited"}}
         self.assertIn("first name Edited", build_task(job))
 
+    def test_profile_used_for_first_fill(self):
+        job = {"fill_summary": None, "answer_overrides": None}
+        profile = {"first_name": "Jane", "last_name": "Doe", "email": "jane@x.com", "phone": "555"}
+        a = answers(job, profile)
+        self.assertEqual(a["first_name"], "Jane")
+        self.assertEqual(a["email"], "jane@x.com")
+
+    def test_override_beats_profile(self):
+        job = {"fill_summary": None, "answer_overrides": {"phone": "999"}}
+        profile = {"first_name": "Jane", "last_name": "Doe", "email": "jane@x.com", "phone": "555"}
+        a = answers(job, profile)
+        self.assertEqual(a["phone"], "999")
+        self.assertEqual(a["first_name"], "Jane")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -113,6 +113,18 @@ class TestJobsApi(unittest.TestCase):
         self._set_state(jid2, "cancelled")
         self.assertEqual(self.client.get("/auth/review", params={"token": tok2}).status_code, 401)
 
+    def test_profile_read_and_update(self):
+        # no profile row in create_all (the seed lives in the migration)
+        self.assertEqual(self.client.get("/profile").status_code, 404)
+        payload = {"first_name": "CANARY-First", "last_name": "CANARY-Last", "email": "canary@example.invalid", "phone": "555-0001", "resume": "resume text"}
+        r = self.client.put("/profile", json=payload, headers={"Authorization": "Bearer admin"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["email"], "canary@example.invalid")
+        # diagnose (ops) can read
+        self.assertEqual(self.client.get("/profile").json()["first_name"], "CANARY-First")
+        # ops cannot update (admin only)
+        self.assertEqual(self.client.put("/profile", json=payload, headers={"Authorization": "Bearer ops"}).status_code, 403)
+
     def test_bulk_create(self):
         r = self.client.post("/jobs/bulk", json=[JOB, {**JOB, "title": "Other"}])
         self.assertEqual(r.json()["total"], 2)

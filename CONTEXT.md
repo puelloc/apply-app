@@ -153,7 +153,7 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 | 6 worker + agent + reasoning | done (end-to-end live) |
 | 7 account flow | done (7c + 7e live) |
 | **8 review UI + KasmVNC** | **done** (fill_summary/approve/review, review-link token, edit-and-rerun, KasmVNC verified live + streaming via NPM `jobs-review` with WebSockets) |
-| **9 MCP · 10 eval · 11 backup** | **in progress** — MCP server built (12 tools, streamable HTTP) + NPM routing verified live (D tests pass); remaining: per-job review-link token `auth_request` (Stage B) |
+| **9 MCP · 10 eval · 11 backup** | **in progress** — MCP built + NPM routing verified; profile layer (placeholders) added. Remaining: matcher + resume tailor + listing UI + ATS selectors (the "go real" work), review-link auth_request, eval, backup |
 
 **Next:** step 8 — the review flow (field diff + artifacts, approve/edit-and-rerun, the short-lived
 KasmVNC link to watch the parked browser). Real job sites are no longer gated (N1–N6 + S1/S2 green),
