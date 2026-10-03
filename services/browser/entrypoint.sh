@@ -1,13 +1,37 @@
 #!/bin/sh
-# Start KasmVNC (headed display + review viewing) + headed Chromium, then run the CDP relay so the
-# worker can reach Chromium's loopback CDP over the browser_net.
+# Start Xvnc (KasmVNC's Xvnc serves the review web UI) + headed Chromium, then run the CDP relay so
+# the worker can reach Chromium's loopback CDP over the browser_net.
+#
+# We launch Xvnc directly rather than the `kasmvncserver` Perl wrapper: the wrapper refuses to run
+# non-interactively without a KasmVNC user ("No users configured and prompting is prohibited").
+# Xvnc runs fine as root and accepts local X clients with no XAUTHORITY.
 set -e
 
-# KasmVNC starts its own Xvfb on :99 and serves the review web UI on 8443. Grant kasm-user write
-# access + a default password (auth is replaced by NPM auth_request in step 9), then start it.
-echo -e 'kasm\nkasm\n' | kasmvncpasswd -u kasm-user -w >/dev/null 2>&1 || true
-kasmvncserver :99 -geometry 1920x1080 -depth 24 >/tmp/kasmvnc.log 2>&1 &
-KASMVNC_PID=$!
+# /tmp is a tmpfs, so the X socket dir must be created at runtime.
+mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
+
+Xvnc :99 \
+  -geometry 1920x1080 -depth 24 \
+  -interface 0.0.0.0 \
+  -websocketPort 8443 \
+  -httpd /usr/share/kasmvnc/www \
+  -sslOnly 0 \
+  -disableBasicAuth \
+  -SecurityTypes None \
+  -AlwaysShared \
+  >/tmp/xvnc.log 2>&1 &
+XVNC_PID=$!
+
+# Wait for the X socket instead of racing Chromium.
+for _ in $(seq 1 50); do
+  [ -S /tmp/.X11-unix/X99 ] && break
+  kill -0 "$XVNC_PID" 2>/dev/null || { echo "Xvnc died:"; cat /tmp/xvnc.log; exit 1; }
+  sleep 0.2
+done
+[ -S /tmp/.X11-unix/X99 ] || { echo "Xvnc socket never appeared"; cat /tmp/xvnc.log; exit 1; }
+
+export DISPLAY=:99
+openbox >/dev/null 2>&1 &
 
 CHROME=$(python3 - <<'EOF'
 from playwright.sync_api import sync_playwright
