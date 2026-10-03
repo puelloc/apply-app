@@ -99,6 +99,20 @@ class TestJobsApi(unittest.TestCase):
         self.assertEqual(lease.status_code, 200)
         self.assertEqual(lease.json()["job"]["id"], jid)
 
+    def test_auth_review_token(self):
+        jid = self.client.post("/jobs", json=JOB).json()["id"]
+        self._set_state(jid, "ready_for_review")
+        link = self.client.get(f"/jobs/{jid}/review-link").json()
+        token = link["url"].split("token=")[1]
+        self.assertEqual(self.client.get("/auth/review", params={"token": token}).status_code, 200)
+        self.assertEqual(self.client.get("/auth/review", params={"token": "bad"}).status_code, 401)
+        # a valid token for a non-ready job is rejected
+        jid2 = self.client.post("/jobs", json={**JOB, "title": "Other"}).json()["id"]
+        self._set_state(jid2, "ready_for_review")
+        tok2 = self.client.get(f"/jobs/{jid2}/review-link").json()["url"].split("token=")[1]
+        self._set_state(jid2, "cancelled")
+        self.assertEqual(self.client.get("/auth/review", params={"token": tok2}).status_code, 401)
+
     def test_bulk_create(self):
         r = self.client.post("/jobs/bulk", json=[JOB, {**JOB, "title": "Other"}])
         self.assertEqual(r.json()["total"], 2)

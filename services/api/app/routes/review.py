@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_session
 from ..models import Job
-from ..review_link import generate_token
+from ..review_link import generate_token, verify_token
 from ..schemas.job import JobRead
 from ..schemas.review import AnswersUpdate, FillSummaryWrite, ReviewResponse
 from ..security import require_scope
@@ -90,3 +90,15 @@ def update_answers(
     session.commit()
     session.refresh(job)
     return job
+
+
+@router.get("/auth/review")
+def verify_review_token(token: str, session: Session = Depends(get_session)) -> dict:
+    """Public (no bearer): NPM's auth_request calls this to validate a short-lived review-link token."""
+    job_id = verify_token(token)
+    if job_id is None:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    job = session.get(Job, job_id)
+    if job is None or job.state != "ready_for_review":
+        raise HTTPException(status_code=401, detail="unauthorized")
+    return {"status": "ok"}
