@@ -8,6 +8,8 @@ verification evidence live there.
 
 For a fresh-session handoff (rules, hosts, versions, gotchas, current state): **[CONTEXT.md](CONTEXT.md)**.
 
+For the multi-service roadmap (match → tailor resume → UI → self-healing): **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
 ## Layout
 
 | Path | Purpose |
