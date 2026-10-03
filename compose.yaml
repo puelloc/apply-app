@@ -26,6 +26,10 @@ services:
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [backend, proxy]
+    # Published on the Pi's loopback only; NPM reaches it via host.docker.internal (no Docker-network
+    # dependency from NPM on this stack). Switch to the LAN interface + ufw if NPM ever moves off-box.
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - db:/data/db
       - artifacts:/data/artifacts
@@ -52,6 +56,8 @@ services:
     networks: [backend, proxy]
     secrets:
       - mcp_api_token
+    ports:
+      - "127.0.0.1:8001:8000"
     environment:
       API_URL: http://api:8000
 
@@ -100,6 +106,8 @@ services:
     profiles: [dev, test, prod]
     # browser_net: worker-driven CDP. proxy: NPM reaches the KasmVNC web UI (8443).
     networks: [browser_net, proxy]
+    ports:
+      - "127.0.0.1:8443:8443"
     volumes:
       - browser-profile:/profile
       - uploads:/uploads:ro
