@@ -52,7 +52,7 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 | --- | --- | --- |
 | `https://ai.siggy-lab.org` | Ollama | **Proxy-fronted with TLS** — NOT `http://…:11434`. Raw `:11434` stays internal/firewalled. |
 | `https://jobapp.siggy-lab.org` | jobs-app API (job intake source) | raw port 8094, UI 8095. |
-| `search.siggy-lab.org` | SearXNG (local meta-search) | Use this instead of Google/DuckDuckGo if any agent search is ever needed. |
+| `search.siggy-lab.org` | SearXNG (local meta-search) | JSON API: `curl -s "https://search.siggy-lab.org/search?q=…&format=json"`. **Use this for web searches** — the built-in `web_search` plugin endpoint is misconfigured; see `docs/searxng-search.md`. |
 | `jobs-api.` / `jobs-mcp.` / `jobs-review.` `.siggy-lab.org` | apply-app hosts (future) | fronted by NPM. |
 | NPM | Nginx Proxy Manager | local-only reverse proxy. |
 
