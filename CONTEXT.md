@@ -152,8 +152,8 @@ gotchas, and current state. **Keep it updated** whenever anything below changes.
 | 5 browser + submit guard + allowlist | done |
 | 6 worker + agent + reasoning | done (end-to-end live) |
 | 7 account flow | done (7c + 7e live) |
-| **8 review UI + KasmVNC** | **in progress** (8a: fill_summary/approve/review; 8b: review-link + KasmVNC first version; 8c: edit-and-rerun) |
-| 9 MCP · 10 eval · 11 backup | pending |
+| **8 review UI + KasmVNC** | **done** (fill_summary/approve/review, review-link token, edit-and-rerun, KasmVNC verified live) |
+| 9 MCP · 10 eval · 11 backup | **next** (MCP + NPM routing/D tests) |
 
 **Next:** step 8 — the review flow (field diff + artifacts, approve/edit-and-rerun, the short-lived
 KasmVNC link to watch the parked browser). Real job sites are no longer gated (N1–N6 + S1/S2 green),
