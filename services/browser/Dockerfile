@@ -48,6 +48,8 @@ ENV PATH="/venv/bin:${PATH}" \
 
 WORKDIR /app
 COPY entrypoint.sh cdp_relay.py ./
+RUN mkdir -p /etc/kasmvnc
+COPY kasmvnc.yaml /etc/kasmvnc/kasmvnc.yaml
 RUN chmod +x entrypoint.sh
 
 EXPOSE 9222 8443
