@@ -98,7 +98,8 @@ services:
     image: apply-app/browser:dev
     <<: *service-common
     profiles: [dev, test, prod]
-    networks: [browser_net]
+    # browser_net: worker-driven CDP. proxy: NPM reaches the KasmVNC web UI (8443).
+    networks: [browser_net, proxy]
     volumes:
       - browser-profile:/profile
       - uploads:/uploads:ro
