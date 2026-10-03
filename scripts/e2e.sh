@@ -10,7 +10,7 @@ cd "$SCRIPT_DIR"
 # 1. Generate the API tokens + worker token (fake/canary-safe; never commit real values).
 mkdir -p secrets
 [ -s secrets/worker_api_token.txt ] || openssl rand -hex 32 > secrets/worker_api_token.txt
-for f in api_admin_token_hash api_diagnose_token_hash mcp_api_token_hash; do
+for f in api_admin_token_hash api_diagnose_token_hash; do
   if [ ! -s "secrets/$f.txt" ]; then
     tok=$(openssl rand -hex 32)
     printf '%s' "$tok" | sha256sum | awk '{print $1}' > "secrets/$f.txt"
@@ -18,15 +18,17 @@ for f in api_admin_token_hash api_diagnose_token_hash mcp_api_token_hash; do
 done
 # The worker uses the ops token; its hash is what the api compares against.
 printf '%s' "$(cat secrets/worker_api_token.txt)" | sha256sum | awk '{print $1}' > secrets/api_ops_token_hash.txt
+# The MCP uses the same ops token (read+write scope) — same raw value as the worker.
+[ -s secrets/mcp_api_token.txt ] || cp secrets/worker_api_token.txt secrets/mcp_api_token.txt
 [ -s secrets/imap_user.txt ] || echo "canary@example.invalid" > secrets/imap_user.txt
 [ -s secrets/imap_pass.txt ] || echo "CANARY-imap-pass" > secrets/imap_pass.txt
 
 # 0. Reset state: remove containers + volumes so the e2e starts from a clean slate (no job backlog).
 docker compose down -v >/dev/null 2>&1 || true
 
-# 2. Compose up (test profile adds mock-ats). Exclude `mcp` (its image lands in step 9).
+# 2. Compose up (test profile adds mock-ats). `mcp` is included since step 9.
 echo "Starting the stack (test profile) ..."
-docker compose --profile test up -d --build api worker browser egress-proxy mock-ats
+docker compose --profile test up -d --build api mcp worker browser egress-proxy mock-ats
 
 # 3. Seed a job pointing at the mock Greenhouse form.
 echo "Waiting for the api ..."
