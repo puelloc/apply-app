@@ -39,6 +39,9 @@ automation core (apply-app) already exists; this designs the intelligence + UI l
 for nothing. One `console` service with one SQLite DB removes that. Inside it, matching/resume logic
 stays in separate modules (pure vs I/O), so it can be split later if it ever needs to.
 
+**Build docs:** `docs/CONSOLE-PLAN.md` (design seed) + `services/console/AGENTS.md` (the build-time
+agent guide, sized for the 64k local model + compaction recovery).
+
 **Boundary rule:** apply-app is dumb automation + the application record. The console is intelligence
 + the candidate list. The only contract between them: **`POST /jobs` (§5) in → primed application out.**
 
