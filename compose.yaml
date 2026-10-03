@@ -43,14 +43,15 @@ services:
       retries: 3
       start_period: 5s
 
-  # FastMCP over streamable HTTP, calling the api with a scoped token.
+  # MCP server (streamable HTTP), calling the api with a scoped token.
   mcp:
-    image: ghcr.io/apply-app/mcp:dev        # PIN BY DIGEST (step 1)
+    build: ./services/mcp
+    image: apply-app/mcp:dev
     <<: *service-common
     profiles: [dev, test, prod]
     networks: [backend, proxy]
     secrets:
-      - mcp_api_token_hash
+      - mcp_api_token
     environment:
       API_URL: http://api:8000
 
@@ -191,7 +192,7 @@ secrets:
     file: ./secrets/api_ops_token_hash.txt
   api_diagnose_token_hash:
     file: ./secrets/api_diagnose_token_hash.txt
-  mcp_api_token_hash:
-    file: ./secrets/mcp_api_token_hash.txt
+  mcp_api_token:
+    file: ./secrets/mcp_api_token.txt
   worker_api_token:
     file: ./secrets/worker_api_token.txt
